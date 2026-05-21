@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebSPSS v2.0</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --spss-blue: #1a3a5c; --header-bg: #2c3e50; --sig-green: #d4edda;
             --non-sig-yellow: #fff3cd; --sig-very: #cce5ff; --border: #d0d0d0;
             --selected: #b3d9ff; --gold: #ffd700; --danger: #d93025; --success: #0d904f;
+            --excel-green: #00695c;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #e8ecf1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 12px; }
@@ -126,6 +128,66 @@
     <button onclick="clearOutput()">🗑️ Clear Output</button><button onclick="printOutput()">🖨️ Print</button>
     <button onclick="downloadPDF()" style="background:#d93025;color:white;">📄 PDF</button>
     <button onclick="downloadCSV()" style="background:#0d904f;color:white;">📥 CSV</button>
+    <button onclick="downloadExcel()" style="background:#00695c;color:white;">📥 Excel</button>
+    // ==================== EKSPOR EXCEL DENGAN CHART ====================
+async function downloadExcel(){
+    updateStatus('📥 Menyiapkan Excel...');
+    
+    // Buat workbook baru
+    const workbook = XLSX.utils.book_new();
+    
+    // === Sheet 1: Data Mentah ===
+    const rawData = [dataColumns, ...dataRows.map(row => dataColumns.map(col => row[col] || ''))];
+    const ws1 = XLSX.utils.aoa_to_sheet(rawData);
+    XLSX.utils.book_append_sheet(workbook, ws1, 'Data Mentah');
+    
+    // === Sheet 2: Hasil Analisis (jika ada) ===
+    if(lastAnalysisResults){
+        const analysisData = [];
+        analysisData.push(['Atribut', ...sampleNames.map((n,i) => `Mean ${String.fromCharCode(65+i)}`), 'F', 'Sig', 'Kesimpulan']);
+        
+        getActivePK().forEach((p, i) => {
+            const sl = getActiveSL();
+            const ar = lastAnalysisResults.anovaResults[sl[i]];
+            if(!ar) return;
+            const row = [sl[i]];
+            ar.sampleMeans.forEach(m => row.push(m.toFixed(2)));
+            row.push(ar.F.toFixed(3));
+            row.push(ar.sig ? '< 0.05' : '> 0.05');
+            row.push(ar.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan');
+            analysisData.push(row);
+        });
+        
+        const ws2 = XLSX.utils.aoa_to_sheet(analysisData);
+        XLSX.utils.book_append_sheet(workbook, ws2, 'Hasil Analisis');
+    }
+    
+    // === Sheet 3: Chart (Spider Web sebagai gambar) ===
+    const spiderCanvas = document.querySelector('.spider-chart-container canvas');
+    if(spiderCanvas){
+        const imgData = spiderCanvas.toDataURL('image/png');
+        // Konversi base64 ke binary
+        const imgBinary = atob(imgData.split(',')[1]);
+        const imgArray = new Uint8Array(imgBinary.length);
+        for(let i = 0; i < imgBinary.length; i++) imgArray[i] = imgBinary.charCodeAt(i);
+        
+        const ws3 = XLSX.utils.aoa_to_sheet([['Spider Web Chart (lihat gambar terpisah)']]);
+        XLSX.utils.book_append_sheet(workbook, ws3, 'Chart');
+    }
+    
+    // Download workbook
+    XLSX.writeFile(workbook, `webspss_output_${new Date().toISOString().slice(0,10)}.xlsx`);
+    
+    // Download chart sebagai PNG terpisah
+    if(spiderCanvas){
+        const link = document.createElement('a');
+        link.download = `webspss_chart_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = spiderCanvas.toDataURL('image/png');
+        link.click();
+    }
+    
+    updateStatus('📥 Excel + Chart PNG didownload');
+}
 </div>
 
 <!-- VARIABLE MANAGER MODAL -->
