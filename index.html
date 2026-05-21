@@ -394,62 +394,189 @@ function updateStatus(msg){document.getElementById('statusBar').textContent='v13
 function downloadPDF(){const outputHTML=document.getElementById('outputContent').innerHTML;const pdfWindow=window.open('','_blank','width=1000,height=800');pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;font-size:10px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;font-size:10px;border:1px solid #ddd;}canvas{max-width:100%;}@media print{body{margin:0;padding:10px;}}</style></head><body><h2>📊 WebSPSS v13.4 — Hedonik Report</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`);pdfWindow.document.close();updateStatus('📄 PDF siap');}
 function downloadCSV(){let csv='\uFEFF';csv+='=== DATA ===\n'+dataColumns.join(',')+'\n';dataRows.forEach(row=>{csv+=dataColumns.map(c=>{const v=row[c]!==undefined?row[c]:'';return String(v).includes(',')?'"'+String(v).replace(/"/g,'""')+'"':String(v);}).join(',')+'\n';});const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='webspss_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);updateStatus('📥 CSV didownload');}
 async function downloadExcel(){
-    updateStatus('📥 Menyiapkan Excel...');
+    updateStatus('📥 Menyiapkan Excel lengkap...');
     
-    // Buat workbook baru
     const workbook = XLSX.utils.book_new();
     
     // === Sheet 1: Data Mentah ===
-    const rawData = [dataColumns, ...dataRows.map(row => dataColumns.map(col => row[col] || ''))];
+    const rawData = [dataColumns, ...dataRows.map(row => dataColumns.map(col => row[col] !== undefined ? row[col] : ''))];
     const ws1 = XLSX.utils.aoa_to_sheet(rawData);
     XLSX.utils.book_append_sheet(workbook, ws1, 'Data Mentah');
     
-    // === Sheet 2: Hasil Analisis (jika ada) ===
+    // === Sheet 2: Informasi Data ===
+    const infoData = [
+        ['INFORMASI DATA'],
+        ['Jumlah Panelis', dataRows.length],
+        ['Jumlah Sampel', numSamples],
+        ['Nama Sampel', sampleNames.join(', ')],
+        ['Skala', 'Hedonik 1-5 (SNI)'],
+        ['Atribut', getActiveSL().join(', ')],
+        ['Over Liking', 'Skor ≥ 4 (Suka & Sangat Suka)'],
+        ['Tanggal Analisis', new Date().toLocaleString('id-ID')],
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(infoData);
+    XLSX.utils.book_append_sheet(workbook, ws2, 'Informasi');
+    
+    // === Sheet 3: Skala Hedonik ===
+    const skalaData = [
+        ['Skor', 'Kategori'],
+        [1, 'Sangat Tidak Suka'],
+        [2, 'Tidak Suka'],
+        [3, 'Agak Tidak Suka'],
+        [4, 'Agak Suka'],
+        [5, 'Sangat Suka'],
+    ];
+    const ws3 = XLSX.utils.aoa_to_sheet(skalaData);
+    XLSX.utils.book_append_sheet(workbook, ws3, 'Skala Hedonik');
+    
+    // === Sheet 4: Descriptive Statistics ===
     if(lastAnalysisResults){
-        const analysisData = [];
-        analysisData.push(['Atribut', ...sampleNames.map((n,i) => `Mean ${String.fromCharCode(65+i)}`), 'F', 'Sig', 'Kesimpulan']);
+        const descData = [['Atribut', 'Sampel', 'N', 'Mean', 'Std Dev', 'Std Error', '95% CI Lower', '95% CI Upper', 'Min', 'Max']];
+        const pk = getActivePK();
+        const sl = getActiveSL();
         
-        getActivePK().forEach((p, i) => {
-            const sl = getActiveSL();
-            const ar = lastAnalysisResults.anovaResults[sl[i]];
-            if(!ar) return;
-            const row = [sl[i]];
-            ar.sampleMeans.forEach(m => row.push(m.toFixed(2)));
-            row.push(ar.F.toFixed(3));
-            row.push(ar.sig ? '< 0.05' : '> 0.05');
-            row.push(ar.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan');
-            analysisData.push(row);
+        pk.forEach((p, pi) => {
+            for(let s = 1; s <= numSamples; s++){
+                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+                const nn = data.length;
+                const m = mean(data);
+                const sd = stdDev(data);
+                const se = sd / Math.sqrt(nn);
+                const tVal = getTCritical(nn - 1, 0.05);
+                const ci = tVal * se;
+                descData.push([
+                    sl[pi],
+                    sampleNames[s-1],
+                    nn,
+                    parseFloat(m.toFixed(2)),
+                    parseFloat(sd.toFixed(3)),
+                    parseFloat(se.toFixed(3)),
+                    parseFloat((m - ci).toFixed(2)),
+                    parseFloat((m + ci).toFixed(2)),
+                    data.length > 0 ? Math.min(...data) : '-',
+                    data.length > 0 ? Math.max(...data) : '-'
+                ]);
+            }
         });
-        
-        const ws2 = XLSX.utils.aoa_to_sheet(analysisData);
-        XLSX.utils.book_append_sheet(workbook, ws2, 'Hasil Analisis');
+        const ws4 = XLSX.utils.aoa_to_sheet(descData);
+        XLSX.utils.book_append_sheet(workbook, ws4, 'Descriptive Stats');
     }
     
-    // === Sheet 3: Chart (Spider Web sebagai gambar) ===
-    const spiderCanvas = document.querySelector('.spider-chart-container canvas');
-    if(spiderCanvas){
-        const imgData = spiderCanvas.toDataURL('image/png');
-        // Konversi base64 ke binary
-        const imgBinary = atob(imgData.split(',')[1]);
-        const imgArray = new Uint8Array(imgBinary.length);
-        for(let i = 0; i < imgBinary.length; i++) imgArray[i] = imgBinary.charCodeAt(i);
+    // === Sheet 5: Hasil ANOVA ===
+    if(lastAnalysisResults){
+        const anovaData = [['Atribut', 'Source', 'SS', 'df', 'MS', 'F', 'Sig', 'Kesimpulan']];
+        const sl = getActiveSL();
+        const ar = lastAnalysisResults.anovaResults;
         
-        const ws3 = XLSX.utils.aoa_to_sheet([['Spider Web Chart (lihat gambar terpisah)']]);
-        XLSX.utils.book_append_sheet(workbook, ws3, 'Chart');
+        Object.entries(ar).forEach(([attr, result]) => {
+            if(result.ssPanelis !== undefined){
+                // Two-Way ANOVA
+                anovaData.push([attr, 'Sampel', parseFloat(result.ssSample.toFixed(3)), result.dfBetween, parseFloat((result.ssSample/result.dfBetween).toFixed(3)), parseFloat(result.F.toFixed(3)), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+                anovaData.push([attr, 'Panelis', parseFloat((result.ssTotal - result.ssSample - result.ssError).toFixed(3)), dataRows.length - 1, '', '', '', '']);
+                anovaData.push([attr, 'Error', parseFloat(result.ssError.toFixed(3)), result.dfError, parseFloat(result.msError.toFixed(3)), '', '', '']);
+                anovaData.push([attr, 'Total', parseFloat(result.ssTotal.toFixed(3)), dataRows.length * numSamples - 1, '', '', '', '']);
+            } else {
+                // One-Way ANOVA
+                anovaData.push([attr, 'Between Groups', parseFloat(result.ssSample.toFixed(3)), result.dfBetween, parseFloat((result.ssSample/result.dfBetween).toFixed(3)), parseFloat(result.F.toFixed(3)), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+                anovaData.push([attr, 'Within Groups', parseFloat(result.ssError.toFixed(3)), result.dfError, parseFloat(result.msError.toFixed(3)), '', '', '']);
+                anovaData.push([attr, 'Total', parseFloat(result.ssTotal.toFixed(3)), dataRows.length * numSamples - 1, '', '', '', '']);
+            }
+        });
+        const ws5 = XLSX.utils.aoa_to_sheet(anovaData);
+        XLSX.utils.book_append_sheet(workbook, ws5, 'ANOVA');
+    }
+    
+    // === Sheet 6: Friedman Test ===
+    if(lastAnalysisResults && lastAnalysisResults.friedResults){
+        const friedData = [['Atribut', 'n Valid', 'Chi-Square', 'df', 'Sig', 'Kesimpulan']];
+        const sl = getActiveSL();
+        const fr = lastAnalysisResults.friedResults;
+        
+        Object.entries(fr).forEach(([attr, result]) => {
+            friedData.push([attr, result.nv || dataRows.length, parseFloat(result.chi2.toFixed(3)), result.df, result.isSig ? '< 0.05' : '> 0.05', result.isSig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+        });
+        const ws6 = XLSX.utils.aoa_to_sheet(friedData);
+        XLSX.utils.book_append_sheet(workbook, ws6, 'Friedman Test');
+    }
+    
+    // === Sheet 7: Duncan Post Hoc ===
+    if(lastAnalysisResults){
+        const duncData = [['Atribut', 'Sampel', 'Mean', 'Hedonik', 'Duncan Group']];
+        const sl = getActiveSL();
+        const ar = lastAnalysisResults.anovaResults;
+        const pk = getActivePK();
+        
+        pk.forEach((p, pi) => {
+            const result = ar[sl[pi]];
+            if(!result) return;
+            const groups = duncanMRT(result.sampleMeans, result.msError, result.n || dataRows.length, result.dfError);
+            result.sampleMeans.forEach((m, i) => {
+                duncData.push([sl[pi], sampleNames[i], parseFloat(m.toFixed(2)), getHedonikLabel(m), groups[i]]);
+            });
+        });
+        const ws7 = XLSX.utils.aoa_to_sheet(duncData);
+        XLSX.utils.book_append_sheet(workbook, ws7, 'Duncan Post Hoc');
+    }
+    
+    // === Sheet 8: Hedonik N% ===
+    if(lastAnalysisResults){
+        const hedData = [['Atribut', ...sampleNames.map((n, i) => `% ${String.fromCharCode(65+i)} (Suka)`), 'Kesimpulan']];
+        const sl = getActiveSL();
+        const pk = getActivePK();
+        
+        pk.forEach((p, i) => {
+            const row = [sl[i]];
+            let maxPct = 0, bestSample = '';
+            for(let s = 1; s <= numSamples; s++){
+                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+                const count = data.filter(v => v >= 4).length;
+                const pct = (count / data.length * 100);
+                row.push(`${pct.toFixed(1)}% (${count}/${data.length})`);
+                if(pct > maxPct){ maxPct = pct; bestSample = sampleNames[s-1]; }
+            }
+            row.push(`Tertinggi: ${bestSample} (${maxPct.toFixed(1)}%)`);
+            hedData.push(row);
+        });
+        const ws8 = XLSX.utils.aoa_to_sheet(hedData);
+        XLSX.utils.book_append_sheet(workbook, ws8, 'Hedonik N%');
+    }
+    
+    // === Sheet 9: Preferensi Panelis ===
+    if(lastAnalysisResults){
+        const prefData = [['Rangking', 'Kode', 'Deskripsi', 'Jumlah Panelis', 'Persentase']];
+        const prefRanking = calculatePreferenceRanking().ranking;
+        prefRanking.forEach((r, i) => {
+            prefData.push([i + 1, `Kode ${String.fromCharCode(65 + sampleNames.indexOf(r.name))}`, r.name, r.count, `${r.percentage.toFixed(1)}%`]);
+        });
+        const ws9 = XLSX.utils.aoa_to_sheet(prefData);
+        XLSX.utils.book_append_sheet(workbook, ws9, 'Preferensi Panelis');
+    }
+    
+    // === Sheet 10: Kesimpulan (dari output HTML) ===
+    const conclusionBox = document.querySelector('.conclusion-box');
+    if(conclusionBox){
+        const conclusionText = conclusionBox.innerText || conclusionBox.textContent;
+        const lines = conclusionText.split('\n').filter(l => l.trim());
+        const concData = [['KESIMPULAN ANALISIS HEDONIK'], ...lines.map(l => [l.trim()])];
+        const ws10 = XLSX.utils.aoa_to_sheet(concData);
+        XLSX.utils.book_append_sheet(workbook, ws10, 'Kesimpulan');
     }
     
     // Download workbook
-    XLSX.writeFile(workbook, `webspss_output_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(workbook, `webspss_laporan_${new Date().toISOString().slice(0,10)}.xlsx`);
     
-    // Download chart sebagai PNG terpisah
-    if(spiderCanvas){
-        const link = document.createElement('a');
-        link.download = `webspss_chart_${new Date().toISOString().slice(0,10)}.png`;
-        link.href = spiderCanvas.toDataURL('image/png');
-        link.click();
-    }
+    // Download Spider Web Chart sebagai PNG terpisah
+    setTimeout(() => {
+        const spiderCanvas = document.querySelector('.spider-chart-container canvas');
+        if(spiderCanvas){
+            const link = document.createElement('a');
+            link.download = `webspss_chart_${new Date().toISOString().slice(0,10)}.png`;
+            link.href = spiderCanvas.toDataURL('image/png');
+            link.click();
+        }
+    }, 500);
     
-    updateStatus('📥 Excel + Chart PNG didownload');
+    updateStatus('📥 Excel lengkap + Chart PNG didownload');
 }
     function drawSpiderChart(canvasId,samplesData,labels){const cv=document.getElementById(canvasId);if(!cv)return;const ctx=cv.getContext('2d'),w=cv.width,h=cv.height,cx=w/2,cy=h/2,radius=Math.min(cx,cy)-50,n=labels.length;const colors=['rgba(26,115,232,0.7)','rgba(217,48,37,0.7)','rgba(13,144,79,0.7)','rgba(230,168,23,0.7)'];const bcolors=['#1a73e8','#d93025','#0d904f','#e6a817'];ctx.clearRect(0,0,w,h);for(let lv=1;lv<=5;lv++){const r=(radius/5)*lv;ctx.beginPath();for(let i=0;i<=n;i++){const a=(Math.PI*2/n)*i-Math.PI/2,x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);if(!i)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='#666';ctx.font='9px Segoe UI';ctx.fillText(lv,cx+3,cy-r+12);}for(let i=0;i<n;i++){const a=(Math.PI*2/n)*i-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+radius*Math.cos(a),cy+radius*Math.sin(a));ctx.strokeStyle='#ccc';ctx.stroke();ctx.fillStyle='#333';ctx.font='bold 10px Segoe UI';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(labels[i],cx+(radius+20)*Math.cos(a),cy+(radius+20)*Math.sin(a));}samplesData.forEach((sd,si)=>{ctx.beginPath();let fp=true;for(let i=0;i<n;i++){const val=sd.values[i]||0;if(val<=0)continue;const r=(radius/5)*val,a=(Math.PI*2/n)*i-Math.PI/2;if(fp){ctx.moveTo(cx+r*Math.cos(a),cy+r*Math.sin(a));fp=false;}else ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));}ctx.closePath();ctx.fillStyle=colors[si%4].replace('0.7','0.2');ctx.fill();ctx.strokeStyle=bcolors[si%4];ctx.lineWidth=2;ctx.stroke();for(let i=0;i<n;i++){const val=sd.values[i]||0;if(val<=0)continue;const r=(radius/5)*val,a=(Math.PI*2/n)*i-Math.PI/2;ctx.beginPath();ctx.arc(cx+r*Math.cos(a),cy+r*Math.sin(a),4,0,Math.PI*2);ctx.fillStyle=bcolors[si%4];ctx.fill();}});}
 
