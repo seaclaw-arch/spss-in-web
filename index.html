@@ -430,56 +430,57 @@ async function downloadExcel(){
     XLSX.utils.book_append_sheet(workbook, ws3, 'Skala Hedonik');
     
     // === Sheet 4: Descriptive Statistics ===
-    if(lastAnalysisResults){
-        const descData = [['Atribut', 'Sampel', 'N', 'Mean', 'Std Dev', 'Std Error', '95% CI Lower', '95% CI Upper', 'Min', 'Max']];
-        const pk = getActivePK();
-        const sl = getActiveSL();
-        
-        pk.forEach((p, pi) => {
-            for(let s = 1; s <= numSamples; s++){
-                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
-                const nn = data.length;
-                const m = mean(data);
-                const sd = stdDev(data);
-                const se = sd / Math.sqrt(nn);
-                const tVal = getTCritical(nn - 1, 0.05);
-                const ci = tVal * se;
-                descData.push([
-                    sl[pi],
-                    sampleNames[s-1],
-                    nn,
-                    parseFloat(m.toFixed(2)),
-                    parseFloat(sd.toFixed(3)),
-                    parseFloat(se.toFixed(3)),
-                    parseFloat((m - ci).toFixed(2)),
-                    parseFloat((m + ci).toFixed(2)),
-                    data.length > 0 ? Math.min(...data) : '-',
-                    data.length > 0 ? Math.max(...data) : '-'
-                ]);
-            }
-        });
-        const ws4 = XLSX.utils.aoa_to_sheet(descData);
-        XLSX.utils.book_append_sheet(workbook, ws4, 'Descriptive Stats');
-    }
+    const descData = [['Atribut', 'Sampel', 'N', 'Mean', 'Std Dev', 'Std Error', '95% CI Lower', '95% CI Upper', 'Min', 'Max']];
+    const pk = getActivePK();
+    const sl = getActiveSL();
     
-    // === Sheet 5: Hasil ANOVA ===
-    if(lastAnalysisResults){
+    pk.forEach((p, pi) => {
+        for(let s = 1; s <= numSamples; s++){
+            const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+            const nn = data.length;
+            const m = mean(data);
+            const sd = stdDev(data);
+            const se = sd / Math.sqrt(nn);
+            const tVal = getTCritical(nn - 1, 0.05);
+            const ci = tVal * se;
+            descData.push([
+                sl[pi],
+                sampleNames[s-1],
+                nn,
+                m.toFixed(2),
+                sd.toFixed(3),
+                se.toFixed(3),
+                (m - ci).toFixed(2),
+                (m + ci).toFixed(2),
+                data.length > 0 ? Math.min(...data) : '-',
+                data.length > 0 ? Math.max(...data) : '-'
+            ]);
+        }
+    });
+    const ws4 = XLSX.utils.aoa_to_sheet(descData);
+    XLSX.utils.book_append_sheet(workbook, ws4, 'Descriptive Stats');
+    
+    // === Sheet 5: Hasil ANOVA (FIXED) ===
+    if(lastAnalysisResults && lastAnalysisResults.anovaResults){
         const anovaData = [['Atribut', 'Source', 'SS', 'df', 'MS', 'F', 'Sig', 'Kesimpulan']];
-        const sl = getActiveSL();
         const ar = lastAnalysisResults.anovaResults;
         
         Object.entries(ar).forEach(([attr, result]) => {
-            if(result.ssPanelis !== undefined){
-                // Two-Way ANOVA
-                anovaData.push([attr, 'Sampel', parseFloat(result.ssSample.toFixed(3)), result.dfBetween, parseFloat((result.ssSample/result.dfBetween).toFixed(3)), parseFloat(result.F.toFixed(3)), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
-                anovaData.push([attr, 'Panelis', parseFloat((result.ssTotal - result.ssSample - result.ssError).toFixed(3)), dataRows.length - 1, '', '', '', '']);
-                anovaData.push([attr, 'Error', parseFloat(result.ssError.toFixed(3)), result.dfError, parseFloat(result.msError.toFixed(3)), '', '', '']);
-                anovaData.push([attr, 'Total', parseFloat(result.ssTotal.toFixed(3)), dataRows.length * numSamples - 1, '', '', '', '']);
+            const isTwoWay = result.dfError === (numSamples - 1) * (dataRows.length - 1);
+            
+            if(isTwoWay){
+                // Two-Way ANOVA - hitung ulang SS Panelis
+                const ssPanelis = result.ssTotal - result.ssSample - result.ssError;
+                const dfPanelis = dataRows.length - 1;
+                anovaData.push([attr, 'Sampel', result.ssSample.toFixed(3), result.dfBetween, result.msSample.toFixed(3), result.F.toFixed(3), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+                anovaData.push([attr, 'Panelis (Block)', ssPanelis.toFixed(3), dfPanelis, (ssPanelis/dfPanelis).toFixed(3), '', '', '']);
+                anovaData.push([attr, 'Error', result.ssError.toFixed(3), result.dfError, result.msError.toFixed(3), '', '', '']);
+                anovaData.push([attr, 'Total', result.ssTotal.toFixed(3), dataRows.length * numSamples - 1, '', '', '', '']);
             } else {
                 // One-Way ANOVA
-                anovaData.push([attr, 'Between Groups', parseFloat(result.ssSample.toFixed(3)), result.dfBetween, parseFloat((result.ssSample/result.dfBetween).toFixed(3)), parseFloat(result.F.toFixed(3)), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
-                anovaData.push([attr, 'Within Groups', parseFloat(result.ssError.toFixed(3)), result.dfError, parseFloat(result.msError.toFixed(3)), '', '', '']);
-                anovaData.push([attr, 'Total', parseFloat(result.ssTotal.toFixed(3)), dataRows.length * numSamples - 1, '', '', '', '']);
+                anovaData.push([attr, 'Between Groups', result.ssSample.toFixed(3), result.dfBetween, result.msSample.toFixed(3), result.F.toFixed(3), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+                anovaData.push([attr, 'Within Groups', result.ssError.toFixed(3), result.dfError, result.msError.toFixed(3), '', '', '']);
+                anovaData.push([attr, 'Total', result.ssTotal.toFixed(3), dataRows.length * numSamples - 1, '', '', '', '']);
             }
         });
         const ws5 = XLSX.utils.aoa_to_sheet(anovaData);
@@ -489,29 +490,26 @@ async function downloadExcel(){
     // === Sheet 6: Friedman Test ===
     if(lastAnalysisResults && lastAnalysisResults.friedResults){
         const friedData = [['Atribut', 'n Valid', 'Chi-Square', 'df', 'Sig', 'Kesimpulan']];
-        const sl = getActiveSL();
         const fr = lastAnalysisResults.friedResults;
         
         Object.entries(fr).forEach(([attr, result]) => {
-            friedData.push([attr, result.nv || dataRows.length, parseFloat(result.chi2.toFixed(3)), result.df, result.isSig ? '< 0.05' : '> 0.05', result.isSig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+            friedData.push([attr, result.nv || dataRows.length, result.chi2.toFixed(3), result.df, result.isSig ? '< 0.05' : '> 0.05', result.isSig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
         });
         const ws6 = XLSX.utils.aoa_to_sheet(friedData);
         XLSX.utils.book_append_sheet(workbook, ws6, 'Friedman Test');
     }
     
     // === Sheet 7: Duncan Post Hoc ===
-    if(lastAnalysisResults){
+    if(lastAnalysisResults && lastAnalysisResults.anovaResults){
         const duncData = [['Atribut', 'Sampel', 'Mean', 'Hedonik', 'Duncan Group']];
-        const sl = getActiveSL();
         const ar = lastAnalysisResults.anovaResults;
-        const pk = getActivePK();
         
         pk.forEach((p, pi) => {
             const result = ar[sl[pi]];
-            if(!result) return;
+            if(!result || !result.sampleMeans) return;
             const groups = duncanMRT(result.sampleMeans, result.msError, result.n || dataRows.length, result.dfError);
             result.sampleMeans.forEach((m, i) => {
-                duncData.push([sl[pi], sampleNames[i], parseFloat(m.toFixed(2)), getHedonikLabel(m), groups[i]]);
+                duncData.push([sl[pi], sampleNames[i], m.toFixed(2), getHedonikLabel(m), groups[i]]);
             });
         });
         const ws7 = XLSX.utils.aoa_to_sheet(duncData);
@@ -519,45 +517,45 @@ async function downloadExcel(){
     }
     
     // === Sheet 8: Hedonik N% ===
-    if(lastAnalysisResults){
-        const hedData = [['Atribut', ...sampleNames.map((n, i) => `% ${String.fromCharCode(65+i)} (Suka)`), 'Kesimpulan']];
-        const sl = getActiveSL();
-        const pk = getActivePK();
-        
-        pk.forEach((p, i) => {
-            const row = [sl[i]];
-            let maxPct = 0, bestSample = '';
-            for(let s = 1; s <= numSamples; s++){
-                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
-                const count = data.filter(v => v >= 4).length;
-                const pct = (count / data.length * 100);
-                row.push(`${pct.toFixed(1)}% (${count}/${data.length})`);
-                if(pct > maxPct){ maxPct = pct; bestSample = sampleNames[s-1]; }
-            }
-            row.push(`Tertinggi: ${bestSample} (${maxPct.toFixed(1)}%)`);
-            hedData.push(row);
-        });
-        const ws8 = XLSX.utils.aoa_to_sheet(hedData);
-        XLSX.utils.book_append_sheet(workbook, ws8, 'Hedonik N%');
-    }
+    const hedData = [['Atribut', ...sampleNames.map((n, i) => `% ${String.fromCharCode(65+i)} (Suka/Sangat Suka)`), 'Tertinggi']];
+    pk.forEach((p, i) => {
+        const row = [sl[i]];
+        let maxPct = 0, bestSample = '';
+        for(let s = 1; s <= numSamples; s++){
+            const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+            const count = data.filter(v => v >= 4).length;
+            const pct = (count / data.length * 100);
+            row.push(`${pct.toFixed(1)}% (${count}/${data.length})`);
+            if(pct > maxPct){ maxPct = pct; bestSample = sampleNames[s-1]; }
+        }
+        row.push(`${bestSample} (${maxPct.toFixed(1)}%)`);
+        hedData.push(row);
+    });
+    const ws8 = XLSX.utils.aoa_to_sheet(hedData);
+    XLSX.utils.book_append_sheet(workbook, ws8, 'Hedonik N%');
     
     // === Sheet 9: Preferensi Panelis ===
-    if(lastAnalysisResults){
-        const prefData = [['Rangking', 'Kode', 'Deskripsi', 'Jumlah Panelis', 'Persentase']];
-        const prefRanking = calculatePreferenceRanking().ranking;
-        prefRanking.forEach((r, i) => {
-            prefData.push([i + 1, `Kode ${String.fromCharCode(65 + sampleNames.indexOf(r.name))}`, r.name, r.count, `${r.percentage.toFixed(1)}%`]);
-        });
-        const ws9 = XLSX.utils.aoa_to_sheet(prefData);
-        XLSX.utils.book_append_sheet(workbook, ws9, 'Preferensi Panelis');
-    }
+    const prefRanking = calculatePreferenceRanking().ranking;
+    const prefData = [['Rangking', 'Kode', 'Deskripsi', 'Jumlah Panelis', 'Persentase']];
+    prefRanking.forEach((r, i) => {
+        prefData.push([i + 1, `Kode ${String.fromCharCode(65 + sampleNames.indexOf(r.name))}`, r.name, r.count, `${r.percentage.toFixed(1)}%`]);
+    });
+    const ws9 = XLSX.utils.aoa_to_sheet(prefData);
+    XLSX.utils.book_append_sheet(workbook, ws9, 'Preferensi Panelis');
     
-    // === Sheet 10: Kesimpulan (dari output HTML) ===
+    // === Sheet 10: Kesimpulan (FIXED - ambil dari output HTML yang sudah dirender) ===
     const conclusionBox = document.querySelector('.conclusion-box');
     if(conclusionBox){
-        const conclusionText = conclusionBox.innerText || conclusionBox.textContent;
-        const lines = conclusionText.split('\n').filter(l => l.trim());
-        const concData = [['KESIMPULAN ANALISIS HEDONIK'], ...lines.map(l => [l.trim()])];
+        // Ambil semua teks dari conclusion box (termasuk dari elemen child)
+        const allText = [];
+        const walker = document.createTreeWalker(conclusionBox, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while(node = walker.nextNode()){
+            const text = node.textContent.trim();
+            if(text) allText.push(text);
+        }
+        const concData = [['KESIMPULAN ANALISIS HEDONIK'], ['']];
+        allText.forEach(line => concData.push([line]));
         const ws10 = XLSX.utils.aoa_to_sheet(concData);
         XLSX.utils.book_append_sheet(workbook, ws10, 'Kesimpulan');
     }
