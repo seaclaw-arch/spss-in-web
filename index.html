@@ -746,40 +746,41 @@ async function downloadExcel(){
         }
         
         // Sheet 7: Duncan (SPSS-Style) - FIXED VERSION
-        if(lastAnalysisResults && lastAnalysisResults.anovaResults){
-            const ws7 = workbook.addWorksheet('Duncan (SPSS-Style)');
-            const ar = lastAnalysisResults.anovaResults;
-            
-            pk.forEach((p, pi) => {
-                const result = ar[sl[pi]];
-                if(!result || !result.sampleMeans) return;
-                
-                const groups = duncanMRT(result.sampleMeans, result.msError, result.n||dataRows.length, result.dfError);
-                const subsets = convertDuncanToSubset(result.sampleMeans, sampleNames, groups);
-                const numSubsets = subsets.length;
-                
-                // Title row
-                const titleRow = ws7.addRow([`Duncan - ${sl[pi]}`]);
-                titleRow.getCell(1).font = { bold: true, size: 11 };
-                
-                // Subset header row
-                const subsetHeaderRow = ws7.addRow(['', '', 'Subset for alpha = 0.05']);
-                if (numSubsets > 1) {
-                    ws7.mergeCells(subsetHeaderRow.number, 3, subsetHeaderRow.number, 3 + numSubsets - 1);
-                }
-                subsetHeaderRow.getCell(3).alignment = { horizontal: 'center' };
-                subsetHeaderRow.getCell(3).font = { bold: true };
-                
-                // Column headers row
-                const colHeaderRow = ws7.addRow(['Nama Produk', 'N', 'Huruf (abc)']);
-                for(let i=1; i<=numSubsets; i++) {
-                    colHeaderRow.getCell(3 + i).value = i;
-                }
-                colHeaderRow.eachCell((cell, colNumber) => {
-                    if (colNumber <= 3 + numSubsets) {
-                        Object.assign(cell, headerStyle);
-                    }
-                });
+if(lastAnalysisResults && lastAnalysisResults.anovaResults){
+    const ws7 = workbook.addWorksheet('Duncan (SPSS-Style)');
+    const ar = lastAnalysisResults.anovaResults;
+    
+    pk.forEach((p, pi) => {
+        const result = ar[sl[pi]];
+        if(!result || !result.sampleMeans) return;
+        
+        const groups = duncanMRT(result.sampleMeans, result.msError, result.n||dataRows.length, result.dfError);
+        const subsets = convertDuncanToSubset(result.sampleMeans, sampleNames, groups);
+        const numSubsets = subsets.length;
+        
+        // Title row
+        const titleRow = ws7.addRow([`Duncan - ${sl[pi]}`]);
+        titleRow.getCell(1).font = { bold: true, size: 11 };
+        
+        // Subset header row - FIXED: Empty cells for first 3 columns
+        const subsetHeaderRow = ws7.addRow(['', '', '', 'Subset for alpha = 0.05']);
+        if (numSubsets > 1) {
+            // FIXED: Merge from column 4 to column (3 + numSubsets)
+            ws7.mergeCells(subsetHeaderRow.number, 4, subsetHeaderRow.number, 3 + numSubsets);
+        }
+        subsetHeaderRow.getCell(4).alignment = { horizontal: 'center' };
+        subsetHeaderRow.getCell(4).font = { bold: true };
+        
+        // Column headers row
+        const colHeaderRow = ws7.addRow(['Nama Produk', 'N', 'Huruf (abc)']);
+        for(let i=1; i<=numSubsets; i++) {
+            colHeaderRow.getCell(3 + i).value = i;
+        }
+        colHeaderRow.eachCell((cell, colNumber) => {
+            if (colNumber <= 3 + numSubsets) {
+                Object.assign(cell, headerStyle);
+            }
+        });
                 
                 // Data rows (sorted ascending by mean)
                 const sortedSamples = result.sampleMeans.map((m, i) => ({
