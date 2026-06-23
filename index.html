@@ -622,252 +622,286 @@ function downloadCSV(){
     updateStatus('📥 CSV didownload');
 }
 async function downloadExcel(){
-    updateStatus('📥 Menyiapkan Excel profesional...');
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'WebSPSS v2.4';
-    workbook.created = new Date();
-    const modeLabel = getModeLabel();
-    const scale = getActiveScale();
-    const headerStyle = {
-        font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Segoe UI' },
-        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF34495E' } },
-        alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
-        border: { top: { style: 'thin', color: { argb: 'FF2C3E50' } }, bottom: { style: 'thin', color: { argb: 'FF2C3E50' } }, left: { style: 'thin', color: { argb: 'FF2C3E50' } }, right: { style: 'thin', color: { argb: 'FF2C3E50' } } }
-    };
-    const cellStyle = {
-        font: { size: 10, name: 'Segoe UI' },
-        alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { top: { style: 'thin', color: { argb: 'FFDDDDDD' } }, bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } }, left: { style: 'thin', color: { argb: 'FFDDDDDD' } }, right: { style: 'thin', color: { argb: 'FFDDDDDD' } } }
-    };
-    const titleStyle = { font: { bold: true, size: 14, color: { argb: 'FF1A3A5C' }, name: 'Segoe UI' } };
-    const sigGreen = { font: { bold: true, color: { argb: 'FF155724' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } } };
-    const sigYellow = { font: { color: { argb: 'FF856404' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } } };
-    const pk = getActivePK();
-    const sl = getActiveSL();
-    
-    const ws1 = workbook.addWorksheet('Data Mentah');
-    ws1.addRow(dataColumns);
-    ws1.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
-    dataRows.forEach(row => {
-        const r = ws1.addRow(dataColumns.map(col => row[col] !== undefined ? row[col] : ''));
-        r.eachCell(cell => Object.assign(cell, cellStyle));
-    });
-    ws1.columns.forEach(col => { col.width = 15; });
-    
-    const ws2 = workbook.addWorksheet('Informasi');
-    ws2.addRow([`INFORMASI DATA — UJI ${modeLabel.toUpperCase()}`]).font = titleStyle;
-    ws2.addRow(['Jumlah Panelis', dataRows.length]);
-    ws2.addRow(['Jumlah Sampel', numSamples]);
-    ws2.addRow(['Nama Sampel', sampleNames.join(', ')]);
-    ws2.addRow(['Jenis Uji', modeLabel]);
-    ws2.addRow(['Skala', `${scale.label} ${scale.points}-poin`]);
-    ws2.addRow(['Label Skala', scale.labels.join(' | ')]);
-    ws2.addRow(['Atribut', sl.join(', ')]);
-    ws2.addRow(['Threshold', `Skor ≥ ${scale.threshold} (${scale.thresholdLabel})`]);
-    ws2.columns[0].width = 20;
-    ws2.columns[1].width = 50;
-    
-    const ws3 = workbook.addWorksheet(`Skala ${modeLabel}`);
-    ws3.addRow(['Skor', 'Kategori']);
-    ws3.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
-    scale.labels.forEach((label, idx) => { ws3.addRow([idx + 1, label]); });
-    ws3.columns[0].width = 10;
-    ws3.columns[1].width = 25;
-    
-    const ws4 = workbook.addWorksheet('Descriptive Stats');
-    const descHeaders = ['Atribut', 'Sampel', 'N', 'Mean', 'Std Dev', 'Std Error', '95% CI Lower', '95% CI Upper', 'Min', 'Max'];
-    ws4.addRow(descHeaders);
-    ws4.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
-    pk.forEach((p, pi) => {
-        for(let s = 1; s <= numSamples; s++){
-            const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
-            const nn = data.length, m = mean(data), sd = stdDev(data), se = sd / Math.sqrt(nn);
-            const tVal = getTCritical(nn - 1, 0.05), ci = tVal * se;
-            const row = ws4.addRow([sl[pi], sampleNames[s-1], nn, +m.toFixed(2), +sd.toFixed(3), +se.toFixed(3), +(m-ci).toFixed(2), +(m+ci).toFixed(2), data.length>0?Math.min(...data):'-', data.length>0?Math.max(...data):'-']);
-            row.eachCell(cell => Object.assign(cell, cellStyle));
-        }
-    });
-    ws4.columns.forEach(col => { col.width = 14; });
-    
-    const ws5 = workbook.addWorksheet('ANOVA');
-    ws5.addRow(['Atribut', 'Source', 'SS', 'df', 'MS', 'F', 'Sig', 'Kesimpulan']);
-    ws5.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
-    if(lastAnalysisResults && lastAnalysisResults.anovaResults){
-        const ar = lastAnalysisResults.anovaResults;
-        Object.entries(ar).forEach(([attr, result]) => {
-            const isTwoWay = result.dfError === (numSamples - 1) * (dataRows.length - 1);
-            if(isTwoWay){
-                const ssPanelis = result.ssTotal - result.ssSample - result.ssError;
-                ws5.addRow([attr, 'Sampel', +result.ssSample.toFixed(3), result.dfBetween, +result.msSample.toFixed(3), +result.F.toFixed(3), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
-                ws5.addRow(['', 'Panelis (Block)', +ssPanelis.toFixed(3), dataRows.length-1, +(ssPanelis/(dataRows.length-1)).toFixed(3), '', '', '']);
-                ws5.addRow(['', 'Error', +result.ssError.toFixed(3), result.dfError, +result.msError.toFixed(3), '', '', '']);
-                ws5.addRow(['', 'Total', +result.ssTotal.toFixed(3), dataRows.length*numSamples-1, '', '', '', '']);
-            } else {
-                ws5.addRow([attr, 'Between Groups', +result.ssSample.toFixed(3), result.dfBetween, +result.msSample.toFixed(3), +result.F.toFixed(3), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
-                ws5.addRow(['', 'Within Groups', +result.ssError.toFixed(3), result.dfError, +result.msError.toFixed(3), '', '', '']);
-                ws5.addRow(['', 'Total', +result.ssTotal.toFixed(3), dataRows.length*numSamples-1, '', '', '', '']);
+    try {
+        updateStatus('📥 Menyiapkan Excel profesional...');
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'WebSPSS v2.4';
+        workbook.created = new Date();
+        const modeLabel = getModeLabel();
+        const scale = getActiveScale();
+        const headerStyle = {
+            font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Segoe UI' },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF34495E' } },
+            alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+            border: { top: { style: 'thin', color: { argb: 'FF2C3E50' } }, bottom: { style: 'thin', color: { argb: 'FF2C3E50' } }, left: { style: 'thin', color: { argb: 'FF2C3E50' } }, right: { style: 'thin', color: { argb: 'FF2C3E50' } } }
+        };
+        const cellStyle = {
+            font: { size: 10, name: 'Segoe UI' },
+            alignment: { horizontal: 'center', vertical: 'middle' },
+            border: { top: { style: 'thin', color: { argb: 'FFDDDDDD' } }, bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } }, left: { style: 'thin', color: { argb: 'FFDDDDDD' } }, right: { style: 'thin', color: { argb: 'FFDDDDDD' } } }
+        };
+        const titleStyle = { font: { bold: true, size: 14, color: { argb: 'FF1A3A5C' }, name: 'Segoe UI' } };
+        const sigGreen = { font: { bold: true, color: { argb: 'FF155724' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } } };
+        const sigYellow = { font: { color: { argb: 'FF856404' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } } };
+        const pk = getActivePK();
+        const sl = getActiveSL();
+        
+        // Sheet 1: Data Mentah
+        const ws1 = workbook.addWorksheet('Data Mentah');
+        ws1.addRow(dataColumns);
+        ws1.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+        dataRows.forEach(row => {
+            const r = ws1.addRow(dataColumns.map(col => row[col] !== undefined ? row[col] : ''));
+            r.eachCell(cell => Object.assign(cell, cellStyle));
+        });
+        ws1.columns.forEach(col => { col.width = 15; });
+        
+        // Sheet 2: Informasi
+        const ws2 = workbook.addWorksheet('Informasi');
+        ws2.addRow([`INFORMASI DATA — UJI ${modeLabel.toUpperCase()}`]).font = titleStyle;
+        ws2.addRow(['Jumlah Panelis', dataRows.length]);
+        ws2.addRow(['Jumlah Sampel', numSamples]);
+        ws2.addRow(['Nama Sampel', sampleNames.join(', ')]);
+        ws2.addRow(['Jenis Uji', modeLabel]);
+        ws2.addRow(['Skala', `${scale.label} ${scale.points}-poin`]);
+        ws2.addRow(['Label Skala', scale.labels.join(' | ')]);
+        ws2.addRow(['Atribut', sl.join(', ')]);
+        ws2.addRow(['Threshold', `Skor ≥ ${scale.threshold} (${scale.thresholdLabel})`]);
+        ws2.columns[0].width = 20;
+        ws2.columns[1].width = 50;
+        
+        // Sheet 3: Skala
+        const ws3 = workbook.addWorksheet(`Skala ${modeLabel}`);
+        ws3.addRow(['Skor', 'Kategori']);
+        ws3.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+        scale.labels.forEach((label, idx) => { ws3.addRow([idx + 1, label]); });
+        ws3.columns[0].width = 10;
+        ws3.columns[1].width = 25;
+        
+        // Sheet 4: Descriptive Stats
+        const ws4 = workbook.addWorksheet('Descriptive Stats');
+        const descHeaders = ['Atribut', 'Sampel', 'N', 'Mean', 'Std Dev', 'Std Error', '95% CI Lower', '95% CI Upper', 'Min', 'Max'];
+        ws4.addRow(descHeaders);
+        ws4.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+        pk.forEach((p, pi) => {
+            for(let s = 1; s <= numSamples; s++){
+                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+                const nn = data.length, m = mean(data), sd = stdDev(data), se = sd / Math.sqrt(nn);
+                const tVal = getTCritical(nn - 1, 0.05), ci = tVal * se;
+                const row = ws4.addRow([sl[pi], sampleNames[s-1], nn, +m.toFixed(2), +sd.toFixed(3), +se.toFixed(3), +(m-ci).toFixed(2), +(m+ci).toFixed(2), data.length>0?Math.min(...data):'-', data.length>0?Math.max(...data):'-']);
+                row.eachCell(cell => Object.assign(cell, cellStyle));
             }
         });
-    }
-    ws5.columns.forEach(col => { col.width = 16; });
-    ws5.eachRow((row, rowNum) => {
-        if(rowNum > 1){
-            row.eachCell(cell => Object.assign(cell, cellStyle));
-            const sigCell = row.getCell(7);
-            if(sigCell.value === '< 0.05') Object.assign(sigCell, sigGreen);
-            else if(sigCell.value === '> 0.05') Object.assign(sigCell, sigYellow);
+        ws4.columns.forEach(col => { col.width = 14; });
+        
+        // Sheet 5: ANOVA
+        const ws5 = workbook.addWorksheet('ANOVA');
+        ws5.addRow(['Atribut', 'Source', 'SS', 'df', 'MS', 'F', 'Sig', 'Kesimpulan']);
+        ws5.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+        if(lastAnalysisResults && lastAnalysisResults.anovaResults){
+            const ar = lastAnalysisResults.anovaResults;
+            Object.entries(ar).forEach(([attr, result]) => {
+                const isTwoWay = result.dfError === (numSamples - 1) * (dataRows.length - 1);
+                if(isTwoWay){
+                    const ssPanelis = result.ssTotal - result.ssSample - result.ssError;
+                    ws5.addRow([attr, 'Sampel', +result.ssSample.toFixed(3), result.dfBetween, +result.msSample.toFixed(3), +result.F.toFixed(3), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+                    ws5.addRow(['', 'Panelis (Block)', +ssPanelis.toFixed(3), dataRows.length-1, +(ssPanelis/(dataRows.length-1)).toFixed(3), '', '', '']);
+                    ws5.addRow(['', 'Error', +result.ssError.toFixed(3), result.dfError, +result.msError.toFixed(3), '', '', '']);
+                    ws5.addRow(['', 'Total', +result.ssTotal.toFixed(3), dataRows.length*numSamples-1, '', '', '', '']);
+                } else {
+                    ws5.addRow([attr, 'Between Groups', +result.ssSample.toFixed(3), result.dfBetween, +result.msSample.toFixed(3), +result.F.toFixed(3), result.sig ? '< 0.05' : '> 0.05', result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan']);
+                    ws5.addRow(['', 'Within Groups', +result.ssError.toFixed(3), result.dfError, +result.msError.toFixed(3), '', '', '']);
+                    ws5.addRow(['', 'Total', +result.ssTotal.toFixed(3), dataRows.length*numSamples-1, '', '', '', '']);
+                }
+            });
         }
-    });
-    
-    if(lastAnalysisResults && lastAnalysisResults.friedResults){
-        const ws6 = workbook.addWorksheet('Friedman Test');
-        ws6.addRow(['Atribut', 'n Valid', 'Chi-Square', 'df', 'Sig', 'Kesimpulan']);
-        ws6.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
-        const fr = lastAnalysisResults.friedResults;
-        Object.entries(fr).forEach(([attr, result]) => {
-            ws6.addRow([attr, result.nv||dataRows.length, +result.chi2.toFixed(3), result.df, result.isSig?'< 0.05':'> 0.05', result.isSig?'Berbeda signifikan':'Tidak berbeda signifikan']);
-        });
-        ws6.columns.forEach(col => { col.width = 16; });
-        ws6.eachRow((row, rowNum) => {
+        ws5.columns.forEach(col => { col.width = 16; });
+        ws5.eachRow((row, rowNum) => {
             if(rowNum > 1){
                 row.eachCell(cell => Object.assign(cell, cellStyle));
-                const sigCell = row.getCell(5);
+                const sigCell = row.getCell(7);
                 if(sigCell.value === '< 0.05') Object.assign(sigCell, sigGreen);
                 else if(sigCell.value === '> 0.05') Object.assign(sigCell, sigYellow);
             }
         });
-    }
-    
-    // Sheet Duncan: SPSS-Style (Subset Columns)
-    if(lastAnalysisResults && lastAnalysisResults.anovaResults){
-        const ws7 = workbook.addWorksheet('Duncan (SPSS-Style)');
-        const ar = lastAnalysisResults.anovaResults;
-        let currentRow = 1;
         
-        pk.forEach((p, pi) => {
-            const result = ar[sl[pi]];
-            if(!result || !result.sampleMeans) return;
-            
-            const groups = duncanMRT(result.sampleMeans, result.msError, result.n||dataRows.length, result.dfError);
-            const subsets = convertDuncanToSubset(result.sampleMeans, sampleNames, groups);
-            const numSubsets = subsets.length;
-            
-            // Header
-            ws7.addRow([`Duncan - ${sl[pi]}`]);
-            ws7.getRow(currentRow).getCell(1).font = { bold: true, size: 11 };
-            currentRow++;
-            
-            ws7.addRow(['', '', 'Subset for alpha = 0.05']);
-            ws7.getRow(currentRow).mergeCells(3, 3 + numSubsets - 1);
-            ws7.getRow(currentRow).getCell(3).alignment = { horizontal: 'center' };
-            currentRow++;
-            
-            ws7.addRow(['Nama Produk', 'N']);
-            for(let i=1; i<=numSubsets; i++) ws7.addRow(['', '', i]);
-            ws7.getRow(currentRow).eachCell(cell => Object.assign(cell, headerStyle));
-            currentRow++;
-            
-            // Data rows (sorted ascending by mean)
-            const sortedSamples = result.sampleMeans.map((m, i) => ({
-                name: sampleNames[i],
-                mean: m,
-                group: groups[i]
-            })).sort((a, b) => a.mean - b.mean);
-            
-            sortedSamples.forEach(sample => {
-                const row = [sample.name, dataRows.length];
-                for(let i=1; i<=numSubsets; i++) {
-                    const inSubset = subsets[i-1].some(s => s.name === sample.name);
-                    row.push(inSubset ? +sample.mean.toFixed(2) : '');
+        // Sheet 6: Friedman
+        if(lastAnalysisResults && lastAnalysisResults.friedResults){
+            const ws6 = workbook.addWorksheet('Friedman Test');
+            ws6.addRow(['Atribut', 'n Valid', 'Chi-Square', 'df', 'Sig', 'Kesimpulan']);
+            ws6.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+            const fr = lastAnalysisResults.friedResults;
+            Object.entries(fr).forEach(([attr, result]) => {
+                ws6.addRow([attr, result.nv||dataRows.length, +result.chi2.toFixed(3), result.df, result.isSig?'< 0.05':'> 0.05', result.isSig?'Berbeda signifikan':'Tidak berbeda signifikan']);
+            });
+            ws6.columns.forEach(col => { col.width = 16; });
+            ws6.eachRow((row, rowNum) => {
+                if(rowNum > 1){
+                    row.eachCell(cell => Object.assign(cell, cellStyle));
+                    const sigCell = row.getCell(5);
+                    if(sigCell.value === '< 0.05') Object.assign(sigCell, sigGreen);
+                    else if(sigCell.value === '> 0.05') Object.assign(sigCell, sigYellow);
                 }
-                ws7.addRow(row);
-                ws7.getRow(currentRow).eachCell(cell => Object.assign(cell, cellStyle));
-                currentRow++;
+            });
+        }
+        
+        // Sheet 7: Duncan (SPSS-Style) - FIXED VERSION
+        if(lastAnalysisResults && lastAnalysisResults.anovaResults){
+            const ws7 = workbook.addWorksheet('Duncan (SPSS-Style)');
+            const ar = lastAnalysisResults.anovaResults;
+            
+            pk.forEach((p, pi) => {
+                const result = ar[sl[pi]];
+                if(!result || !result.sampleMeans) return;
+                
+                const groups = duncanMRT(result.sampleMeans, result.msError, result.n||dataRows.length, result.dfError);
+                const subsets = convertDuncanToSubset(result.sampleMeans, sampleNames, groups);
+                const numSubsets = subsets.length;
+                
+                // Title row
+                const titleRow = ws7.addRow([`Duncan - ${sl[pi]}`]);
+                titleRow.getCell(1).font = { bold: true, size: 11 };
+                
+                // Subset header row
+                const subsetHeaderRow = ws7.addRow(['', '', 'Subset for alpha = 0.05']);
+                if (numSubsets > 1) {
+                    ws7.mergeCells(subsetHeaderRow.number, 3, subsetHeaderRow.number, 3 + numSubsets - 1);
+                }
+                subsetHeaderRow.getCell(3).alignment = { horizontal: 'center' };
+                subsetHeaderRow.getCell(3).font = { bold: true };
+                
+                // Column headers row
+                const colHeaderRow = ws7.addRow(['Nama Produk', 'N', 'Huruf (abc)']);
+                for(let i=1; i<=numSubsets; i++) {
+                    colHeaderRow.getCell(3 + i).value = i;
+                }
+                colHeaderRow.eachCell((cell, colNumber) => {
+                    if (colNumber <= 3 + numSubsets) {
+                        Object.assign(cell, headerStyle);
+                    }
+                });
+                
+                // Data rows (sorted ascending by mean)
+                const sortedSamples = result.sampleMeans.map((m, i) => ({
+                    name: sampleNames[i],
+                    mean: m,
+                    group: groups[i]
+                })).sort((a, b) => a.mean - b.mean);
+                
+                sortedSamples.forEach(sample => {
+                    const rowData = [sample.name, dataRows.length, sample.group];
+                    for(let i=1; i<=numSubsets; i++) {
+                        const inSubset = subsets[i-1].some(s => s.name === sample.name);
+                        rowData.push(inSubset ? +sample.mean.toFixed(2) : '');
+                    }
+                    const dataRow = ws7.addRow(rowData);
+                    dataRow.eachCell((cell, colNumber) => {
+                        if (colNumber <= 3 + numSubsets) {
+                            Object.assign(cell, cellStyle);
+                        }
+                    });
+                });
+                
+                // Sig row
+                const sigRowData = ['Sig.', '', ''];
+                for(let i=1; i<=numSubsets; i++) {
+                    sigRowData.push(result.F ? +result.F.toFixed(3) : '');
+                }
+                const sigRow = ws7.addRow(sigRowData);
+                sigRow.eachCell((cell, colNumber) => {
+                    if (colNumber <= 3 + numSubsets) {
+                        Object.assign(cell, cellStyle);
+                    }
+                });
+                sigRow.getCell(1).font = { bold: true };
+                
+                // Empty row between attributes
+                ws7.addRow([]);
             });
             
-            // Sig row
-            const sigRow = ['Sig.', ''];
-            for(let i=1; i<=numSubsets; i++) sigRow.push(result.F ? +result.F.toFixed(3) : '');
-            ws7.addRow(sigRow);
-            ws7.getRow(currentRow).eachCell(cell => Object.assign(cell, cellStyle));
-            ws7.getRow(currentRow).getCell(1).font = { bold: true };
-            currentRow++;
-            
-            currentRow++; // Empty row
-        });
+            ws7.columns.forEach(col => { col.width = 18; });
+        }
         
-        ws7.columns.forEach(col => { col.width = 18; });
-    }
-    
-    const ws8 = workbook.addWorksheet(`${modeLabel} N%`);
-    ws8.addRow(['Atribut', ...sampleNames.map((n,i) => `% ${String.fromCharCode(65+i)} (${scale.thresholdLabel})`), 'Tertinggi']);
-    ws8.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
-    pk.forEach((p, i) => {
-        const row = [sl[i]];
-        let maxPct = 0, bestSample = '';
-        for(let s = 1; s <= numSamples; s++){
-            const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
-            const count = data.filter(v => v >= scale.threshold).length;
-            const pct = (count / data.length * 100);
-            row.push(`${pct.toFixed(1)}% (${count}/${data.length})`);
-            if(pct > maxPct){ maxPct = pct; bestSample = sampleNames[s-1]; }
-        }
-        row.push(`${bestSample} (${maxPct.toFixed(1)}%)`);
-        const r = ws8.addRow(row);
-        r.eachCell(cell => Object.assign(cell, cellStyle));
-    });
-    ws8.columns.forEach(col => { col.width = 22; });
-    
-    const ws9 = workbook.addWorksheet('Preferensi Panelis');
-    ws9.addRow(['Rangking', 'Kode', 'Deskripsi', 'Jumlah Panelis', 'Persentase']);
-    ws9.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
-    const prefRanking = calculatePreferenceRanking().ranking;
-    prefRanking.forEach((r, i) => {
-        const row = ws9.addRow([i+1, `Kode ${String.fromCharCode(65+sampleNames.indexOf(r.name))}`, r.name, r.count, `${r.percentage.toFixed(1)}%`]);
-        row.eachCell(cell => Object.assign(cell, cellStyle));
-        if(i === 0){ row.eachCell(cell => { cell.font = { bold: true, size: 10 }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } }; }); }
-    });
-    ws9.columns.forEach(col => { col.width = 20; });
-    
-    const ws10 = workbook.addWorksheet('Kesimpulan');
-    const conclusionBox = document.querySelector('.conclusion-box');
-    if(conclusionBox){
-        const allText = [];
-        const walker = document.createTreeWalker(conclusionBox, NodeFilter.SHOW_TEXT, null, false);
-        let node;
-        while(node = walker.nextNode()){
-            const text = node.textContent.trim();
-            if(text) allText.push(text);
-        }
-        const titleRow = ws10.addRow([`KESIMPULAN ANALISIS ${modeLabel.toUpperCase()}`]);
-        titleRow.getCell(1).font = titleStyle;
-        allText.forEach(line => {
-            const row = ws10.addRow([line]);
-            row.getCell(1).font = { size: 10, name: 'Segoe UI' };
+        // Sheet 8: N%
+        const ws8 = workbook.addWorksheet(`${modeLabel} N%`);
+        ws8.addRow(['Atribut', ...sampleNames.map((n,i) => `% ${String.fromCharCode(65+i)} (${scale.thresholdLabel})`), 'Tertinggi']);
+        ws8.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+        pk.forEach((p, i) => {
+            const row = [sl[i]];
+            let maxPct = 0, bestSample = '';
+            for(let s = 1; s <= numSamples; s++){
+                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+                const count = data.filter(v => v >= scale.threshold).length;
+                const pct = (count / data.length * 100);
+                row.push(`${pct.toFixed(1)}% (${count}/${data.length})`);
+                if(pct > maxPct){ maxPct = pct; bestSample = sampleNames[s-1]; }
+            }
+            row.push(`${bestSample} (${maxPct.toFixed(1)}%)`);
+            const r = ws8.addRow(row);
+            r.eachCell(cell => Object.assign(cell, cellStyle));
         });
-        ws10.columns[0].width = 100;
-    }
-    
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `webspss_${getModeLabel().toLowerCase()}_${new Date().toISOString().slice(0,10)}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    setTimeout(() => {
-        const spiderCanvas = document.querySelector('.spider-chart-container canvas');
-        if(spiderCanvas){
-            const link = document.createElement('a');
-            link.download = `webspss_chart_${new Date().toISOString().slice(0,10)}.png`;
-            link.href = spiderCanvas.toDataURL('image/png');
-            link.click();
+        ws8.columns.forEach(col => { col.width = 22; });
+        
+        // Sheet 9: Preferensi
+        const ws9 = workbook.addWorksheet('Preferensi Panelis');
+        ws9.addRow(['Rangking', 'Kode', 'Deskripsi', 'Jumlah Panelis', 'Persentase']);
+        ws9.getRow(1).eachCell(cell => Object.assign(cell, headerStyle));
+        const prefRanking = calculatePreferenceRanking().ranking;
+        prefRanking.forEach((r, i) => {
+            const row = ws9.addRow([i+1, `Kode ${String.fromCharCode(65+sampleNames.indexOf(r.name))}`, r.name, r.count, `${r.percentage.toFixed(1)}%`]);
+            row.eachCell(cell => Object.assign(cell, cellStyle));
+            if(i === 0){ row.eachCell(cell => { cell.font = { bold: true, size: 10 }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } }; }); }
+        });
+        ws9.columns.forEach(col => { col.width = 20; });
+        
+        // Sheet 10: Kesimpulan
+        const ws10 = workbook.addWorksheet('Kesimpulan');
+        const conclusionBox = document.querySelector('.conclusion-box');
+        if(conclusionBox){
+            const allText = [];
+            const walker = document.createTreeWalker(conclusionBox, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            while(node = walker.nextNode()){
+                const text = node.textContent.trim();
+                if(text) allText.push(text);
+            }
+            const titleRow = ws10.addRow([`KESIMPULAN ANALISIS ${modeLabel.toUpperCase()}`]);
+            titleRow.getCell(1).font = titleStyle;
+            allText.forEach(line => {
+                const row = ws10.addRow([line]);
+                row.getCell(1).font = { size: 10, name: 'Segoe UI' };
+            });
+            ws10.columns[0].width = 100;
         }
-    }, 500);
-    
-    updateStatus(`📥 Excel ${modeLabel} profesional + Chart PNG didownload`);
+        
+        // Generate and download
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `webspss_${getModeLabel().toLowerCase()}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        // Download chart PNG
+        setTimeout(() => {
+            const spiderCanvas = document.querySelector('.spider-chart-container canvas');
+            if(spiderCanvas){
+                const link = document.createElement('a');
+                link.download = `webspss_chart_${new Date().toISOString().slice(0,10)}.png`;
+                link.href = spiderCanvas.toDataURL('image/png');
+                link.click();
+            }
+        }, 500);
+        
+        updateStatus(`📥 Excel ${modeLabel} profesional + Chart PNG didownload`);
+        
+    } catch (error) {
+        console.error('Excel download error:', error);
+        alert(`❌ Gagal download Excel:\n\n${error.message}\n\nSilakan coba lagi atau hubungi support.`);
+        updateStatus('❌ Error download Excel');
+    }
 }
 
 // ==================== SPIDER CHART ====================
