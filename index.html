@@ -1046,61 +1046,57 @@ const getOverallLabel=()=>{
     return variableDefs[last]?.label||last;
 };
 
-// ==================== DUNCAN SUBSET CONVERTER (untuk SPSS-Style) ====================
+// ==================== DUNCAN SUBSET CONVERTER (FIXED) ====================
 function convertDuncanToSubset(means, sampleNames, duncanGroups) {
     const k = means.length;
-    const indexed = means.map((m, i) => ({ mean: m, name: sampleNames[i], group: duncanGroups[i], index: i }))
-                        .sort((a, b) => b.mean - a.mean);
     
-    const notSig = Array.from({length: k}, () => new Set());
-    for (let i = 0; i < k; i++) {
-        for (let j = i + 1; j < k; j++) {
-            const lettersI = indexed[i].group.split('');
-            const lettersJ = indexed[j].group.split('');
-            const shared = lettersI.some(l => lettersJ.includes(l));
-            if (shared) {
-                notSig[i].add(j);
-                notSig[j].add(i);
-            }
-        }
-    }
+    // Bangun struktur data dengan informasi lengkap
+    const indexed = means.map((m, i) => ({ 
+        mean: m, 
+        name: sampleNames[i], 
+        group: duncanGroups[i], 
+        index: i 
+    })).sort((a, b) => b.mean - a.mean); // Sort descending by mean
     
+    // Cari semua huruf unik yang digunakan
+    const allLetters = new Set();
+    indexed.forEach(item => {
+        item.group.split('').forEach(l => allLetters.add(l));
+    });
+    
+    // Bangun subset berdasarkan huruf
+    // Setiap huruf = satu subset
     const subsets = [];
-    const used = new Set();
+    const letterToSubsetIndex = {};
     
-    for (let i = 0; i < k; i++) {
-        if (used.has(i)) continue;
-        const subset = [indexed[i]];
-        for (let j = i + 1; j < k; j++) {
-            if (notSig[i].has(j)) {
-                subset.push(indexed[j]);
-            }
-        }
-        subsets.push(subset);
-        subset.forEach(s => used.add(s.index));
+    let subsetIdx = 0;
+    allLetters.forEach(letter => {
+        letterToSubsetIndex[letter] = subsetIdx++;
+    });
+    
+    // Inisialisasi subsets
+    for (let i = 0; i < subsetIdx; i++) {
+        subsets.push([]);
     }
     
-    for (let i = 0; i < k; i++) {
-        const sample = indexed[i];
-        let inSubset = subsets.some(s => s.some(x => x.index === i));
-        if (!inSubset) {
-            for (let s = 0; s < subsets.length; s++) {
-                const subsetMembers = subsets[s].map(x => x.index);
-                const sharesLetter = subsetMembers.some(idx => {
-                    const letters1 = sample.group.split('');
-                    const letters2 = indexed[idx].group.split('');
-                    return letters1.some(l => letters2.includes(l));
-                });
-                if (sharesLetter) {
-                    subsets[s].push(sample);
-                    subsets[s].sort((a, b) => b.mean - a.mean);
-                    break;
-                }
+    // Masukkan sampel ke subset berdasarkan hurufnya
+    indexed.forEach(item => {
+        const letters = item.group.split('');
+        letters.forEach(letter => {
+            const sIdx = letterToSubsetIndex[letter];
+            if (sIdx !== undefined) {
+                subsets[sIdx].push(item);
             }
-        }
-    }
+        });
+    });
     
-    return subsets;
+    // Sort setiap subset by mean (descending)
+    subsets.forEach(subset => {
+        subset.sort((a, b) => b.mean - a.mean);
+    });
+    
+    // Hapus subset yang kosong
+    return subsets.filter(s => s.length > 0);
 }
 
 // ==================== RENDER DUNCAN SPSS-STYLE + ABC (HYBRID) ====================
