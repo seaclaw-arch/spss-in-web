@@ -902,7 +902,67 @@ function shapiroWilk(data){const n=data.length;if(n<3)return{W:1,pValue:1,isNorm
 function getFCritical(df1,df2,alpha=0.05){const F_TABLE={0.05:{1:{1:161.4,2:18.51,3:10.13,4:7.71,5:6.61,10:4.96,20:4.35,30:4.17,40:4.08,60:4.00,120:3.92,1000:3.85},2:{1:199.5,2:19.00,3:9.55,4:6.94,5:5.79,10:4.10,20:3.49,30:3.32,40:3.23,60:3.15,120:3.07,1000:3.00},3:{1:215.7,2:19.16,3:9.28,4:6.59,5:5.41,10:3.71,20:3.10,30:2.92,40:2.84,60:2.76,120:2.68,1000:2.61},4:{1:224.6,2:19.25,3:9.12,4:6.39,5:5.19,10:3.48,20:2.87,30:2.69,40:2.61,60:2.53,120:2.45,1000:2.37},5:{1:230.2,2:19.30,3:9.01,4:6.26,5:5.05,10:3.33,20:2.71,30:2.53,40:2.45,60:2.37,120:2.29,1000:2.21}}};const table=F_TABLE[alpha]?.[Math.min(df1,5)]||F_TABLE[0.05][Math.min(df1,5)];if(!table)return 3.84;const keys=Object.keys(table).map(Number).sort((a,b)=>a-b);if(df2<=keys[0])return table[keys[0]];if(df2>=keys[keys.length-1])return table[keys[keys.length-1]];for(let i=0;i<keys.length-1;i++){if(df2>=keys[i]&&df2<=keys[i+1]){const f1=table[keys[i]],f2=table[keys[i+1]];const ratio=(df2-keys[i])/(keys[i+1]-keys[i]);return parseFloat((f1+ratio*(f2-f1)).toFixed(3));}}return table[keys[keys.length-1]];}
 function getChiSquareCritical(df,alpha=0.05){const t={0.05:{1:3.841,2:5.991,3:7.815,4:9.488,5:11.070,6:12.592,7:14.067,8:15.507,9:16.919,10:18.307}};return(t[alpha]||t[0.05])[Math.min(df,10)]||t[0.05][10];}
 function friedmanTest(groups){const k=groups.length;const n=groups[0].length;const validRows=[];for(let ri=0;ri<n;ri++){let allValid=true;for(let s=0;s<k;s++){if(!groups[s][ri]||groups[s][ri]<=0){allValid=false;break;}}if(allValid)validRows.push(ri);}const nv=validRows.length;if(nv<3)return{chi2:0,df:k-1,isSig:false,critical:0,note:'n<3',nv};const ranks=Array.from({length:nv},(_,pi)=>{const ri=validRows[pi];const row=groups.map((g,s)=>({val:g[ri],s}));row.sort((a,b)=>a.val-b.val);const r=new Array(k);let i=0;while(i<k){let j=i;while(j<k&&row[j].val===row[i].val)j++;const avgRank=(i+j+1)/2;for(let m=i;m<j;m++)r[row[m].s]=avgRank;i=j;}return r;});const Rj=new Array(k).fill(0);ranks.forEach(row=>row.forEach((r,s)=>Rj[s]+=r));const chi2_unc=(12/(nv*k*(k+1)))*Rj.reduce((a,r)=>a+r*r,0)-3*nv*(k+1);let tieCorrection=0;for(let pi=0;pi<nv;pi++){const ri=validRows[pi];const values=groups.map(g=>g[ri]);const freq={};values.forEach(v=>freq[v]=(freq[v]||0)+1);Object.values(freq).forEach(t=>{if(t>1)tieCorrection+=(t*t*t-t);});}const C=1-tieCorrection/(nv*k*(k*k-1));const chi2=C>0.01?chi2_unc/C:chi2_unc;const df=k-1;const crit=getChiSquareCritical(df);return{chi2:parseFloat(chi2.toFixed(3)),df,isSig:chi2>crit,critical:crit,nv};}
-function duncanMRT(means,msError,n,dfError,alpha=0.05){const k=means.length;if(k===1)return['a'];const se=Math.sqrt(msError/n);const indexed=means.map((m,i)=>({mean:m,index:i})).sort((a,b)=>b.mean-a.mean);const letters=Array.from({length:k},()=>[]);let currentLetter='a'.charCodeAt(0);for(let p=2;p<=k;p++){const rp=getDuncanRange(p,dfError,alpha);const lsd=rp*se;for(let i=0;i<=k-p;i++){const j=i+p-1;if(Math.abs(indexed[i].mean-indexed[j].mean)<=lsd){const sharedLetter=String.fromCharCode(currentLetter);for(let m=i;m<=j;m++){if(!letters[indexed[m].index].includes(sharedLetter))letters[indexed[m].index].push(sharedLetter);}currentLetter++;}}}return letters.map(arr=>arr.length>0?arr.sort().join(''):String.fromCharCode(currentLetter++));}
+function duncanMRT(means, msError, n, dfError, alpha=0.05) {
+    const k = means.length;
+    if (k === 1) return ['a'];
+    
+    const se = Math.sqrt(msError / n);
+    const indexed = means.map((m, i) => ({ mean: m, index: i }))
+                        .sort((a, b) => b.mean - a.mean);
+    
+    // Build significance matrix
+    const sigDiff = Array.from({length: k}, () => Array(k).fill(false));
+    
+    for (let i = 0; i < k; i++) {
+        for (let j = i + 1; j < k; j++) {
+            const p = j - i + 1;
+            const rp = getDuncanRange(p, dfError, alpha);
+            const lsd = rp * se;
+            if (Math.abs(indexed[i].mean - indexed[j].mean) > lsd) {
+                sigDiff[i][j] = true;
+                sigDiff[j][i] = true;
+            }
+        }
+    }
+    
+    // Compact Letter Display algorithm
+    const letters = Array.from({length: k}, () => new Set());
+    const used = new Set();
+    const subsets = [];
+    
+    // Find maximal subsets of non-significant samples
+    for (let i = 0; i < k; i++) {
+        if (used.has(i)) continue;
+        
+        const subset = [i];
+        for (let j = i + 1; j < k; j++) {
+            if (!sigDiff[i][j]) {
+                const compatible = subset.every(m => !sigDiff[m][j]);
+                if (compatible) {
+                    subset.push(j);
+                }
+            }
+        }
+        
+        subsets.push(subset);
+        subset.forEach(s => used.add(s));
+    }
+    
+    // Assign letters (maximum k letters)
+    const letterChars = 'abcdefghijklmnopqrstuvwxyz';
+    subsets.forEach((subset, idx) => {
+        if (idx < 26) {
+            const letter = letterChars[idx];
+            subset.forEach(s => letters[indexed[s].index].add(letter));
+        }
+    });
+    
+    // Build result in original order
+    return means.map((_, i) => {
+        const letterSet = letters[i];
+        return letterSet.size > 0 ? [...letterSet].sort().join('') : letterChars[subsets.length] || 'z';
+    });
+}
 function getDuncanRange(p,df,alpha=0.05){const DUNCAN_TABLE={0.05:{2:{10:3.15,20:2.95,30:2.89,40:2.86,60:2.83,120:2.80,1000:2.77},3:{10:3.30,20:3.10,30:3.04,40:3.01,60:2.98,120:2.95,1000:2.92},4:{10:3.37,20:3.18,30:3.12,40:3.09,60:3.06,120:3.03,1000:3.00},5:{10:3.42,20:3.23,30:3.17,40:3.14,60:3.11,120:3.08,1000:3.05}}};const table=DUNCAN_TABLE[alpha]?.[Math.min(p,5)];if(!table)return 3.00;const keys=Object.keys(table).map(Number).sort((a,b)=>a-b);if(df<=keys[0])return table[keys[0]];if(df>=keys[keys.length-1])return table[keys[keys.length-1]];for(let i=0;i<keys.length-1;i++){if(df>=keys[i]&&df<=keys[i+1]){const r1=table[keys[i]],r2=table[keys[i+1]];const ratio=(df-keys[i])/(keys[i+1]-keys[i]);return parseFloat((r1+ratio*(r2-r1)).toFixed(3));}}return table[keys[keys.length-1]];}
 function getTCritical(df,alpha){const t={0.10:{10:1.812,20:1.725,30:1.697,40:1.684,50:1.676},0.05:{10:2.228,20:2.086,30:2.042,40:2.021,50:2.009},0.01:{10:3.169,20:2.845,30:2.750,40:2.704,50:2.678}};const d=t[alpha]||t[0.05];const ks=Object.keys(d).map(Number).sort((a,b)=>a-b);let s=ks[0];for(let k of ks){if(df>=k)s=k;else break;}return d[s];}
 function leveneTest(groups){const gMeans=groups.map(g=>mean(g));const zScores=groups.map((g,i)=>g.map(v=>Math.abs(v-gMeans[i])));const allZ=zScores.flat();const gZM=mean(allZ);const k=groups.length,N=allZ.length;let ssB=0;zScores.forEach((z,i)=>ssB+=z.length*Math.pow(mean(z)-gZM,2));let ssW=0;zScores.forEach((z,i)=>{const zm=mean(z);z.forEach(v=>ssW+=Math.pow(v-zm,2));});const df1=k-1,df2=N-k,msB=ssB/df1,msW=ssW/df2,F=msW>0?msB/msW:0,fCrit=getFCritical(df1,df2,0.05);return{F,df1,df2,isHomogeneous:F<=fCrit};}
