@@ -873,7 +873,7 @@ async function downloadExcel(){
                 subsetHeaderRow.getCell(4).font = { bold: true };
                 
                 // Column headers row
-                const colHeaderRow = ws7.addRow(['Nama Produk', 'N', 'Huruf (abc)']);
+                const colHeaderRow = ws7.addRow(['Nama Produk', 'N', 'Duncan Group']);
                 for(let i=1; i<=numSubsets; i++) {
                     colHeaderRow.getCell(3 + i).value = i;
                 }
@@ -1296,7 +1296,7 @@ function renderDuncanSPSSStyle(anovaResults, sampleNames, nPerSample) {
     
     html += `<div class="note-box" style="margin-top: 10px;">
         <b>📖 Cara Membaca (Hybrid SPSS + abc):</b><br>
-        • <b>Kolom Huruf (abc):</b> Sampel dengan <b>huruf yang sama</b> = tidak berbeda signifikan (p > 0.05).<br>
+        • <b>Kolom Duncan Group:</b> Sampel dengan <b>huruf yang sama</b> = tidak berbeda signifikan (p > 0.05).<br>
         • <b>Kolom Subset:</b> Sampel dalam <b>subset (kolom) yang sama</b> = tidak berbeda signifikan.<br>
         • <b>Kesimpulan Cepat:</b> Jika dua sampel <b>tidak memiliki huruf yang sama</b> DAN <b>tidak pernah berada di subset yang sama</b>, maka keduanya <b>berbeda nyata</b>.
     </div>`;
