@@ -10,19 +10,15 @@
             --spss-blue: #1a3a5c; --header-bg: #2c3e50; --sig-green: #d4edda;
             --non-sig-yellow: #fff3cd; --sig-very: #cce5ff; --border: #d0d0d0;
             --selected: #b3d9ff; --gold: #ffd700; --danger: #d93025; --success: #0d904f;
-            --excel-green: #00695c; --purple-btn: #6f42c1;
+            --excel-green: #00695c; --purple-btn: #6f42c1; --hover-bg: #e3f2fd;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #e8ecf1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 12px; }
-        
-        /* Title Bar */
         .title-bar { background: var(--header-bg); color: white; padding: 6px 16px; display: flex; align-items: center; justify-content: space-between; z-index: 100; min-height: 40px; }
         .title-bar h1 { font-size: 15px; font-weight: 500; }
         .mode-indicator { padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; margin-left: 10px; display: inline-block; letter-spacing: 0.5px; }
         .mode-indicator.hedonik { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
         .mode-indicator.deskriptif { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-        
-        /* Sample Name Bar */
         .sample-name-bar { background: #e8f0fe; border-bottom: 1px solid #a0c4ff; padding: 6px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; z-index: 98; }
         .sample-name-bar label { font-size: 10px; font-weight: 600; color: #1a3a5c; }
         .sample-name-bar input { padding: 4px 8px; font-size: 10px; border: 1px solid #a0c4ff; border-radius: 3px; background: white; min-width: 100px; }
@@ -30,59 +26,31 @@
         .sample-name-bar .sample-tag { background: #1a73e8; color: white; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; }
         .sample-name-bar button { padding: 4px 10px; font-size: 10px; border: 1px solid #1a73e8; background: #1a73e8; color: white; border-radius: 3px; cursor: pointer; }
         
-        /* IMPROVED TOOLBAR */
-        .toolbar { 
-            background: #f5f5f5; 
-            border-bottom: 1px solid #ccc; 
-            padding: 6px 10px; 
-            display: flex; 
-            gap: 8px; 
-            flex-wrap: wrap; 
-            align-items: center; 
-            z-index: 99; 
-            min-height: 42px; 
-        }
-        .toolbar-group { 
-            display: flex; 
-            gap: 3px; 
-            align-items: center; 
-            padding-right: 10px; 
-            margin-right: 2px;
-            border-right: 1px solid #ddd; 
-        }
-        .toolbar-group:last-child { border-right: none; margin-right: 0; padding-right: 0; }
-        .toolbar button { 
-            padding: 5px 10px; 
-            border: 1px solid #bbb; 
-            background: white; 
-            cursor: pointer; 
-            border-radius: 4px; 
-            font-size: 10px; 
-            font-weight: 500; 
-            white-space: nowrap; 
-            transition: all 0.2s;
-        }
-        .toolbar button:hover { background: #e0e0e0; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        /* ✅ TOOLBAR REDESIGN */
+        .toolbar { background: #f8f9fa; border-bottom: 2px solid #e0e0e0; padding: 6px 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; z-index: 99; min-height: 42px; }
+        .toolbar-group { display: flex; gap: 4px; align-items: center; padding: 0 8px; border-right: 1px solid #ddd; }
+        .toolbar-group:last-child { border-right: none; }
+        .toolbar button { padding: 6px 10px; border: 1px solid #bbb; background: white; cursor: pointer; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; transition: all 0.2s ease; display: flex; align-items: center; gap: 4px; }
+        .toolbar button:hover { background: var(--hover-bg); border-color: #1a73e8; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .toolbar button:active { transform: translateY(0); }
         .toolbar button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
         .toolbar button.primary { background: #1a73e8; color: white; border-color: #1557b0; }
         .toolbar button.primary:hover { background: #1557b0; }
         .toolbar button.gold { background: linear-gradient(135deg, #ffd700, #e6a817); color: #333; border-color: #c49000; font-weight: 700; }
-        .toolbar button.gold:hover { background: linear-gradient(135deg, #e6a817, #d49a10); }
         .toolbar button.danger { background: #d93025; color: white; border-color: #b71c1c; }
         .toolbar button.danger:hover { background: #b71c1c; }
         .toolbar button.warning { background: #e6a817; color: #333; border-color: #c49000; }
         .toolbar button.purple { background: #7c3aed; color: white; border-color: #6d28d9; }
         .toolbar button.teal { background: #009688; color: white; border-color: #00796b; }
         .toolbar button.mode-toggle { background: linear-gradient(135deg, #42a5f5, #66bb6a); color: white; border-color: #1976d2; font-weight: 700; }
+        .toolbar button.target-btn { background: #6f42c1; color: white; border-color: #5a32a3; font-weight: 600; }
         .toolbar button.summary-btn { background: var(--purple-btn); color: white; border-color: #5a32a3; font-weight: 600; }
-        .toolbar button.summary-btn:hover { background: #5a32a3; }
-        .toolbar .sep { width: 1px; height: 18px; background: #ccc; margin: 0 3px; }
-        
-        /* Modal */
+        .toolbar button.summary-btn.pdf { background: #d93025; border-color: #b71c1c; }
+        .toolbar button.summary-btn.excel { background: #00695c; border-color: #004d40; }
+
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 300; justify-content: center; align-items: center; }
         .modal-overlay.show { display: flex; }
-        .modal-content { background: white; border-radius: 8px; padding: 20px; min-width: 500px; max-width: 600px; max-height: 80vh; overflow: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .modal-content { background: white; border-radius: 8px; padding: 20px; min-width: 450px; max-width: 550px; max-height: 85vh; overflow: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         .modal-content h3 { color: #1a3a5c; margin-bottom: 10px; font-size: 14px; }
         .modal-content .var-list { max-height: 300px; overflow: auto; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; }
         .modal-content .var-item { display: flex; align-items: center; padding: 6px 8px; border-bottom: 1px solid #eee; gap: 6px; font-size: 10px; }
@@ -100,18 +68,6 @@
         .modal-content .btn-primary { background: #1a73e8; color: white; }
         .modal-content .btn-secondary { background: #ddd; color: #333; }
         .modal-content .btn-danger { background: #d93025; color: white; }
-        
-        /* Target Modal Specific */
-        .target-input-group { margin: 15px 0; }
-        .target-input-group label { display: block; font-weight: 600; margin-bottom: 5px; color: #1a3a5c; font-size: 11px; }
-        .target-input-group input { width: 100%; padding: 8px; border: 2px solid #1a73e8; border-radius: 4px; font-size: 12px; font-family: monospace; }
-        .target-examples { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 10px; color: #666; }
-        .target-examples code { background: #e9ecef; padding: 2px 5px; border-radius: 3px; color: #d93025; font-weight: bold; }
-        .target-status { margin-top: 10px; padding: 8px; border-radius: 4px; font-size: 11px; display: none; }
-        .target-status.valid { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: block; }
-        .target-status.invalid { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: block; }
-
-        /* Main Content */
         .main-content { display: flex; flex: 1; overflow: hidden; }
         .data-editor { flex: 1; display: flex; flex-direction: column; background: white; border-right: 2px solid #ccc; min-width: 400px; }
         .editor-area { flex: 1; overflow: auto; background: #fafafa; position: relative; outline: none; }
@@ -125,8 +81,6 @@
         .editor-area .row-num { background: #f0f0f0; text-align: center; font-size: 9px; color: #888; min-width: 30px; width: 30px; cursor: pointer; }
         .editor-area .row-num.selected-row { background: #ffcccc !important; }
         .editor-area td.selected-cell { background: #b3d9ff !important; }
-        
-        /* Output Panel */
         .output-panel { flex: 1.6; display: flex; flex-direction: column; background: #fffef8; min-width: 550px; overflow: hidden; }
         .output-header { background: #2c3e50; color: white; padding: 7px 12px; font-size: 11px; display: flex; align-items: center; gap: 6px; min-height: 32px; }
         .output-content { flex: 1; overflow: auto; padding: 10px; font-size: 11px; line-height: 1.5; }
@@ -201,8 +155,6 @@
         .highlight-box { background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin: 15px 0; border-radius: 4px; }
         .success-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 15px 0; border-radius: 4px; }
         .fail-box { background: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 15px 0; border-radius: 4px; }
-        .target-display-box { background: #e3f2fd; border: 2px solid #1a73e8; padding: 15px; margin: 15px 0; border-radius: 6px; text-align: center; }
-        .target-display-box strong { color: #1a3a5c; font-size: 13px; }
 
         @media print {
             .data-editor,.toolbar,.title-bar,.footer-bar,.sample-name-bar,.modal-overlay{display:none!important}
@@ -221,7 +173,6 @@
         <span id="panelCount" style="font-size:10px;">Panelis: 0</span>
     </div>
 </div>
-
 <div class="sample-name-bar" id="sampleNameBar">
     <label> Nama Sampel:</label>
     <span id="sampleNameInputs"></span>
@@ -230,48 +181,37 @@
     <button onclick="applyBlindCodes()" class="teal" style="color:white;border-color:#00796b;"> Blind Code</button>
 </div>
 
-<!-- REORGANIZED TOOLBAR -->
+<!-- ✅ REDESIGNED TOOLBAR -->
 <div class="toolbar" id="toolbar">
-    <!-- Group 1: Data Editing -->
     <div class="toolbar-group">
-        <button onclick="undo()" id="btnUndo" disabled>↩ Undo</button>
+        <button onclick="undo()" id="btnUndo" disabled>  Undo</button>
         <button onclick="redo()" id="btnRedo" disabled>↪ Redo</button>
-        <button onclick="addRow()">➕ Baris</button>
-        <button onclick="clearAllData()" class="danger">🗑️ Clear</button>
+        <button onclick="addRow()"> ➕ Baris</button>
+        <button class="purple" onclick="openVariableManager()">⚙️ Variabel</button>
     </div>
-    
-    <!-- Group 2: Templates -->
     <div class="toolbar-group">
         <button class="warning" onclick="loadSample2()">📥 2 Sampel</button>
         <button class="warning" onclick="loadSample3()">📥 3 Sampel</button>
         <button class="warning" onclick="loadSample4()">📥 4 Sampel</button>
     </div>
-    
-    <!-- Group 3: Settings -->
     <div class="toolbar-group">
-        <button class="purple" onclick="openVariableManager()">⚙️ Variabel</button>
         <button id="btnToggleMode" class="mode-toggle" onclick="toggleTestMode()">🔄 Mode: Hedonik</button>
+        <button onclick="clearAllData()" class="danger">️ Clear</button>
     </div>
-    
-    <!-- Group 4: Analysis -->
     <div class="toolbar-group">
         <button class="primary" onclick="runAnalysisWithAssumptionCheck(false)">🚀 Analisis Lengkap</button>
         <button class="gold" onclick="runAnalysisWithAssumptionCheck(true)">🏆 Analisis Profesional</button>
     </div>
-    
-    <!-- Group 5: Summary & Target (NEW) -->
     <div class="toolbar-group">
-        <button class="summary-btn" onclick="openTargetModal()"> Set Target</button>
-        <button class="summary-btn" onclick="showCustomSummary()"> Summary Report</button>
-        <button class="summary-btn" onclick="downloadSummaryPDF()" style="background:#d93025;border-color:#b71c1c;">📥 Summary PDF</button>
-        <button class="summary-btn" onclick="downloadSummaryExcel()" style="background:#00695c;border-color:#004d40;">📊 Summary Excel</button>
+        <button class="target-btn" onclick="openTargetModal()">🎯 Atur Target</button>
+        <button class="summary-btn" onclick="showCustomSummary()">📄 Summary</button>
+        <button class="summary-btn pdf" onclick="downloadSummaryPDF()">📥 PDF</button>
+        <button class="summary-btn excel" onclick="downloadSummaryExcel()"> Excel</button>
     </div>
-    
-    <!-- Group 6: Export -->
     <div class="toolbar-group">
-        <button onclick="clearOutput()"> Clear Output</button>
+        <button onclick="clearOutput()">🧹 Clear Output</button>
         <button onclick="printOutput()">🖨️ Print</button>
-        <button onclick="downloadPDF()" style="background:#d93025;color:white;"> PDF</button>
+        <button onclick="downloadPDF()" style="background:#d93025;color:white;">📥 PDF</button>
         <button onclick="downloadCSV()" style="background:#0d904f;color:white;">📥 CSV</button>
         <button onclick="downloadExcel()" style="background:#00695c;color:white;"> Excel</button>
     </div>
@@ -289,36 +229,32 @@
             <button onclick="addVariable()">➕ Tambah</button>
         </div>
         <div class="btn-group">
-            <button class="btn-danger" onclick="resetVariables()">🔄 Reset Default (7)</button>
+            <button class="btn-danger" onclick="resetVariables()"> Reset Default (7)</button>
             <button class="btn-secondary" onclick="closeVariableManager()">Batal</button>
             <button class="btn-primary" onclick="applyVariables()">✅ Terapkan</button>
         </div>
     </div>
 </div>
 
-<!-- TARGET SETTING MODAL (NEW) -->
+<!-- ✅ TARGET INPUT MODAL -->
 <div class="modal-overlay" id="targetModal" onclick="if(event.target===this)closeTargetModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <h3>🎯 Pengaturan Target Perbandingan</h3>
-        <p style="font-size:10px;color:#666;margin-bottom:15px;">Tentukan target perbandingan sampel. Summary akan mengevaluasi apakah target tercapai berdasarkan nilai Mean.</p>
-        
-        <div class="target-input-group">
-            <label>Format Target:</label>
-            <input type="text" id="targetInput" placeholder="Contoh: B, C >= A" value="B, C >= A">
-            <div class="target-examples">
-                <b>Contoh Format:</b><br>
-                • <code>B >= A</code> : Sampel B harus lebih besar atau sama dengan A<br>
-                • <code>B, C >= A</code> : Sampel B dan C harus >= A<br>
-                • <code>563, 415 >= 274</code> : Menggunakan nama sampel langsung<br>
-                • <code>Kode B dan C >= Kode A</code> : Format dengan kata 'dan'
-            </div>
+    <div class="modal-content" style="min-width:420px;" onclick="event.stopPropagation()">
+        <h3>🎯 Atur Target Perbandingan</h3>
+        <p style="font-size:10px;color:#666;margin-bottom:10px;">Tentukan perlakuan mana yang harus ≥ eksisting atau sampel pembanding untuk evaluasi summary.</p>
+        <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px;">Format Target:</label>
+            <input type="text" id="targetInput" placeholder="Contoh: Kode B ≥ Kode A atau Kode B dan C ≥ Kode A" style="width:100%;padding:8px 10px;font-size:11px;border:1px solid #ccc;border-radius:4px;">
         </div>
-        
-        <div id="targetStatus" class="target-status"></div>
-        
+        <div style="font-size:10px;color:#666;margin-bottom:14px;background:#f8f9fa;padding:10px;border-radius:6px;border:1px dashed #ccc;">
+            <b>💡 Contoh Format:</b><br>
+            • <code style="background:#e3f2fd;padding:2px 4px;border-radius:3px;">P2 ≥ Eksisting</code><br>
+            • <code style="background:#e3f2fd;padding:2px 4px;border-radius:3px;">P2 dan P5 ≥ Eksisting</code><br>
+            • <code style="background:#e3f2fd;padding:2px 4px;border-radius:3px;">Sampel B dan D ≥ Sampel A</code><br>
+            • <code style="background:#e3f2fd;padding:2px 4px;border-radius:3px;">Perlakuan ≥ Kontrol</code>
+        </div>
         <div class="btn-group">
             <button class="btn-secondary" onclick="closeTargetModal()">Batal</button>
-            <button class="btn-primary" onclick="saveTarget()"> Simpan Target</button>
+            <button class="btn-primary" onclick="applyTarget()">✅ Terapkan Target</button>
         </div>
     </div>
 </div>
@@ -342,7 +278,7 @@
             <p style="font-size:32px;">📊</p>
             <p><b>WebSPSS v2.7</b></p>
             <p style="font-size:10px;">Duncan SPSS-Style + Dynamic Target Summary</p>
-            <p style="font-size:10px;margin-top:8px;">Klik tombol <b>🎯 Set Target</b> untuk mengatur target perbandingan</p>
+            <p style="font-size:10px;margin-top:8px;">Klik <b>🎯 Atur Target</b> lalu <b>📄 Summary</b> untuk laporan otomatis</p>
         </div>
     </div>
 </div>
@@ -401,34 +337,48 @@ let lastAnalysisResults=null;
 let pendingVarDefs=null,pendingActiveVars=null;
 let saveTimeout=null;
 
-// ==================== TARGET CONFIGURATION ====================
-let targetConfig = {
-    rawInput: 'B, C >= A',
-    treatments: ['B', 'C'], // Codes or Names
-    baselines: ['A'],       // Codes or Names
-    isValid: true
-};
+// ✅ DYNAMIC TARGET VARIABLE
+let summaryTarget = "Perlakuan 2 dan Perlakuan 5 ≥ Eksisting";
+
+// ==================== TARGET MODAL FUNCTIONS ====================
+function openTargetModal() { 
+    document.getElementById('targetInput').value = summaryTarget; 
+    document.getElementById('targetModal').classList.add('show'); 
+}
+function closeTargetModal() { 
+    document.getElementById('targetModal').classList.remove('show'); 
+}
+function applyTarget() { 
+    const val = document.getElementById('targetInput').value.trim(); 
+    if(val) { 
+        summaryTarget = val; 
+        closeTargetModal(); 
+        updateStatus(' Target diupdate: ' + summaryTarget); 
+    } else {
+        alert('Target tidak boleh kosong!');
+    }
+}
 
 // ==================== CUSTOM SUMMARY DATA ====================
 const summaryData = {
     info: {
         panelis: 24,
         samples: ['274 (Eksisting)', '563 (Perlakuan 2)', '751 (Eksisting)', '415 (Perlakuan 5)'],
-        sampleCodes: ['A', 'B', 'C', 'D'],
         attributes: 9,
         scale: '1-5 (Sangat Lemah → Sangat Kuat)',
-        target: 'B, C >= A' // Will be updated dynamically
+        // ✅ Uses dynamic target
+        get target() { return summaryTarget; }
     },
     descriptive: {
-        'Warna Permukaan (Browning Glaze)': { '274 (Eksisting)': {n:24, mean:3.83, sd:0.761, min:3, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.63, sd:0.875, min:2, max:5}, '751 (Eksisting)': {n:24, mean:3.42, sd:1.176, min:1, max:5}, '415 (Perlakuan 5)': {n:24, mean:2.96, sd:0.859, min:1, max:4}, sig: true, duncan: '274,563,751 (a) | 415 (b)' },
-        'Penampilan Utuh': { '274 (Eksisting)': {n:24, mean:3.83, sd:0.761, min:2, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.67, sd:0.816, min:2, max:5}, '751 (Eksisting)': {n:24, mean:3.63, sd:0.970, min:1, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.96, sd:0.806, min:2, max:5}, sig: false, duncan: 'Semua (a)' },
-        'Aroma Bumbu': { '274 (Eksisting)': {n:24, mean:3.54, sd:0.721, min:2, max:5}, '563 (Perlakuan 2)': {n:24, mean:2.83, sd:0.816, min:1, max:4}, '751 (Eksisting)': {n:24, mean:3.08, sd:0.974, min:1, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.38, sd:1.096, min:1, max:5}, sig: true, duncan: '274,415,751 (a) | 563 (b)' },
-        'Rasa Manis Khas': { '274 (Eksisting)': {n:24, mean:3.63, sd:0.770, min:2, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.33, sd:1.007, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.46, sd:0.932, min:2, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.25, sd:0.989, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
-        'Rasa Asin Khas': { '274 (Eksisting)': {n:24, mean:3.63, sd:0.875, min:2, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.33, sd:0.963, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.25, sd:0.944, min:1, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.54, sd:1.062, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
-        'Rasa Gurih/Umami': { '274 (Eksisting)': {n:24, mean:3.67, sd:0.816, min:2, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.21, sd:1.021, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.13, sd:0.947, min:1, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.54, sd:1.021, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
-        'Keempukan (Tenderness)': { '274 (Eksisting)': {n:24, mean:3.58, sd:0.776, min:2, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.38, sd:1.013, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.71, sd:0.859, min:2, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.54, sd:0.932, min:2, max:5}, sig: false, duncan: 'Semua (a)' },
-        'Kebasahan (Juiciness)': { '274 (Eksisting)': {n:24, mean:3.79, sd:0.721, min:3, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.21, sd:0.977, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.67, sd:0.917, min:2, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.38, sd:0.875, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
-        'Aftertaste': { '274 (Eksisting)': {n:24, mean:3.54, sd:0.884, min:2, max:5}, '563 (Perlakuan 2)': {n:24, mean:3.04, sd:0.955, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.17, sd:0.868, min:1, max:5}, '415 (Perlakuan 5)': {n:24, mean:3.25, sd:0.944, min:1, max:5}, sig: false, duncan: 'Semua (a)' }
+        'Warna Permukaan (Browning Glaze)': { '274 (Eksisting)': {n:24, mean:3.83, sd:0.761, min:3, max:5}, '563 (P2)': {n:24, mean:3.63, sd:0.875, min:2, max:5}, '751 (Eksisting)': {n:24, mean:3.42, sd:1.176, min:1, max:5}, '415 (P5)': {n:24, mean:2.96, sd:0.859, min:1, max:4}, sig: true, duncan: '274,563,751 (a) | 415 (b)' },
+        'Penampilan Utuh': { '274 (Eksisting)': {n:24, mean:3.83, sd:0.761, min:2, max:5}, '563 (P2)': {n:24, mean:3.67, sd:0.816, min:2, max:5}, '751 (Eksisting)': {n:24, mean:3.63, sd:0.970, min:1, max:5}, '415 (P5)': {n:24, mean:3.96, sd:0.806, min:2, max:5}, sig: false, duncan: 'Semua (a)' },
+        'Aroma Bumbu': { '274 (Eksisting)': {n:24, mean:3.54, sd:0.721, min:2, max:5}, '563 (P2)': {n:24, mean:2.83, sd:0.816, min:1, max:4}, '751 (Eksisting)': {n:24, mean:3.08, sd:0.974, min:1, max:5}, '415 (P5)': {n:24, mean:3.38, sd:1.096, min:1, max:5}, sig: true, duncan: '274,415,751 (a) | 563 (b)' },
+        'Rasa Manis Khas': { '274 (Eksisting)': {n:24, mean:3.63, sd:0.770, min:2, max:5}, '563 (P2)': {n:24, mean:3.33, sd:1.007, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.46, sd:0.932, min:2, max:5}, '415 (P5)': {n:24, mean:3.25, sd:0.989, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
+        'Rasa Asin Khas': { '274 (Eksisting)': {n:24, mean:3.63, sd:0.875, min:2, max:5}, '563 (P2)': {n:24, mean:3.33, sd:0.963, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.25, sd:0.944, min:1, max:5}, '415 (P5)': {n:24, mean:3.54, sd:1.062, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
+        'Rasa Gurih/Umami': { '274 (Eksisting)': {n:24, mean:3.67, sd:0.816, min:2, max:5}, '563 (P2)': {n:24, mean:3.21, sd:1.021, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.13, sd:0.947, min:1, max:5}, '415 (P5)': {n:24, mean:3.54, sd:1.021, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
+        'Keempukan (Tenderness)': { '274 (Eksisting)': {n:24, mean:3.58, sd:0.776, min:2, max:5}, '563 (P2)': {n:24, mean:3.38, sd:1.013, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.71, sd:0.859, min:2, max:5}, '415 (P5)': {n:24, mean:3.54, sd:0.932, min:2, max:5}, sig: false, duncan: 'Semua (a)' },
+        'Kebasahan (Juiciness)': { '274 (Eksisting)': {n:24, mean:3.79, sd:0.721, min:3, max:5}, '563 (P2)': {n:24, mean:3.21, sd:0.977, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.67, sd:0.917, min:2, max:5}, '415 (P5)': {n:24, mean:3.38, sd:0.875, min:1, max:5}, sig: false, duncan: 'Semua (a)' },
+        'Aftertaste': { '274 (Eksisting)': {n:24, mean:3.54, sd:0.884, min:2, max:5}, '563 (P2)': {n:24, mean:3.04, sd:0.955, min:1, max:5}, '751 (Eksisting)': {n:24, mean:3.17, sd:0.868, min:1, max:5}, '415 (P5)': {n:24, mean:3.25, sd:0.944, min:1, max:5}, sig: false, duncan: 'Semua (a)' }
     },
     nPercent: {
         'Warna Permukaan': { '274 (Eks)': '62.5%', '563 (P2)': '45.8%', '751 (Eks)': '54.2%', '415 (P5)': '29.2%' },
@@ -449,136 +399,6 @@ const summaryData = {
     ]
 };
 
-// ==================== TARGET FUNCTIONS ====================
-function openTargetModal() {
-    document.getElementById('targetInput').value = targetConfig.rawInput;
-    validateTargetInput();
-    document.getElementById('targetModal').classList.add('show');
-}
-
-function closeTargetModal() {
-    document.getElementById('targetModal').classList.remove('show');
-}
-
-function validateTargetInput() {
-    const input = document.getElementById('targetInput').value.trim();
-    const statusDiv = document.getElementById('targetStatus');
-    
-    if (!input.includes('>=')) {
-        statusDiv.className = 'target-status invalid';
-        statusDiv.textContent = '❌ Format tidak valid. Harus mengandung ">="';
-        return false;
-    }
-    
-    const parsed = parseTargetString(input);
-    if (!parsed || parsed.treatments.length === 0 || parsed.baselines.length === 0) {
-        statusDiv.className = 'target-status invalid';
-        statusDiv.textContent = '❌ Tidak dapat memproses sampel. Pastikan format benar.';
-        return false;
-    }
-    
-    // Check if samples exist
-    const allSamples = [...summaryData.info.sampleCodes, ...summaryData.info.samples.map(s => s.split(' ')[0])];
-    const validTreat = parsed.treatments.every(t => allSamples.some(s => s.toUpperCase() === t.toUpperCase() || s.includes(t)));
-    const validBase = parsed.baselines.every(b => allSamples.some(s => s.toUpperCase() === b.toUpperCase() || s.includes(b)));
-    
-    if (!validTreat || !validBase) {
-        statusDiv.className = 'target-status invalid';
-        statusDiv.textContent = `⚠️ Sampel tidak ditemukan. Tersedia: ${summaryData.info.sampleCodes.join(', ')}`;
-        return false;
-    }
-    
-    statusDiv.className = 'target-status valid';
-    statusDiv.textContent = `✅ Target valid: ${parsed.treatments.join(', ')} >= ${parsed.baselines.join(', ')}`;
-    return true;
-}
-
-function parseTargetString(str) {
-    // Handle "B, C >= A" or "Kode B dan C >= Kode A"
-    let cleanStr = str.replace(/kode/gi, '').trim();
-    const parts = cleanStr.split('>=');
-    if (parts.length !== 2) return null;
-    
-    const treatPart = parts[0].trim();
-    const basePart = parts[1].trim();
-    
-    // Split by comma or 'dan'
-    const treatList = treatPart.split(/,|dan/i).map(s => s.trim().toUpperCase()).filter(s => s);
-    const baseList = basePart.split(/,|dan/i).map(s => s.trim().toUpperCase()).filter(s => s);
-    
-    return { treatments: treatList, baselines: baseList };
-}
-
-function saveTarget() {
-    const input = document.getElementById('targetInput').value.trim();
-    if (!validateTargetInput()) {
-        alert('Format target tidak valid! Silakan periksa kembali.');
-        return;
-    }
-    
-    const parsed = parseTargetString(input);
-    targetConfig = {
-        rawInput: input,
-        treatments: parsed.treatments,
-        baselines: parsed.baselines,
-        isValid: true
-    };
-    
-    summaryData.info.target = input;
-    closeTargetModal();
-    updateStatus(`🎯 Target disimpan: ${input}`);
-}
-
-// Map target codes/names to actual sample names in summaryData
-function mapTargetToSamples(codes) {
-    const mapped = [];
-    codes.forEach(code => {
-        // Try to match by code (A, B, C, D)
-        const codeIndex = summaryData.info.sampleCodes.indexOf(code);
-        if (codeIndex !== -1) {
-            mapped.push(summaryData.info.samples[codeIndex]);
-        } else {
-            // Try to match by sample name prefix (e.g., "274" matches "274 (Eksisting)")
-            const found = summaryData.info.samples.find(s => s.toUpperCase().includes(code) || s.split(' ')[0] === code);
-            if (found) mapped.push(found);
-        }
-    });
-    return mapped;
-}
-
-function evaluateTargetForAttribute(attrKey) {
-    const attrData = summaryData.descriptive[attrKey];
-    if (!attrData) return { pass: false, details: 'Data tidak ditemukan' };
-    
-    const treatSamples = mapTargetToSamples(targetConfig.treatments);
-    const baseSamples = mapTargetToSamples(targetConfig.baselines);
-    
-    if (treatSamples.length === 0 || baseSamples.length === 0) {
-        return { pass: false, details: 'Sampel target tidak valid' };
-    }
-    
-    // Calculate average baseline mean
-    const baseMeans = baseSamples.map(s => attrData[s]?.mean || 0);
-    const avgBaseMean = baseMeans.reduce((a, b) => a + b, 0) / baseMeans.length;
-    
-    // Check each treatment
-    const results = [];
-    let allPass = true;
-    
-    treatSamples.forEach(treat => {
-        const treatMean = attrData[treat]?.mean || 0;
-        const pass = treatMean >= avgBaseMean;
-        results.push({ sample: treat, mean: treatMean, pass });
-        if (!pass) allPass = false;
-    });
-    
-    return {
-        pass: allPass,
-        avgBaseMean: avgBaseMean,
-        details: results
-    };
-}
-
 // ==================== CUSTOM SUMMARY FUNCTIONS ====================
 function showCustomSummary() {
     const html = generateSummaryHTML();
@@ -590,75 +410,32 @@ function generateSummaryHTML() {
     let html = `<div class="summary-container">`;
     html += `<h2>📊 SUMMARY HASIL ANALISIS SENSORI DESKRIPTIF</h2>`;
     
-    // Target Display
-    html += `<div class="target-display-box">`;
-    html += `<strong>🎯 TARGET PENELITIAN:</strong><br>`;
-    html += `<span style="font-size:16px;font-weight:bold;color:#1a73e8;">${summaryData.info.target}</span>`;
-    html += `</div>`;
-    
     // Info
     html += `<h3>📋 Informasi Penelitian</h3>`;
     html += `<table class="summary-table">`;
     html += `<tr><td style="text-align:left;width:30%;"><b>Panelis</b></td><td>${summaryData.info.panelis} orang</td></tr>`;
-    html += `<tr><td style="text-align:left;"><b>Sampel</b></td><td>${summaryData.info.samples.map((s, i) => `${s} (${summaryData.info.sampleCodes[i]})`).join(', ')}</td></tr>`;
+    html += `<tr><td style="text-align:left;"><b>Sampel</b></td><td>${summaryData.info.samples.join(', ')}</td></tr>`;
     html += `<tr><td style="text-align:left;"><b>Atribut</b></td><td>${summaryData.info.attributes} atribut sensori</td></tr>`;
     html += `<tr><td style="text-align:left;"><b>Skala</b></td><td>${summaryData.info.scale}</td></tr>`;
+    html += `<tr><td style="text-align:left;"><b> Target Evaluasi</b></td><td style="font-weight:600;color:#6f42c1;">${summaryData.info.target}</td></tr>`;
     html += `</table>`;
 
-    // Descriptive Stats with Target Evaluation
-    html += `<h3>📈 Evaluasi Target per Atribut</h3>`;
-    html += `<table class="summary-table"><tr><th>Atribut</th>`;
-    targetConfig.treatments.forEach(t => {
-        const mapped = mapTargetToSamples([t])[0] || t;
-        html += `<th>${mapped} (Mean)</th>`;
-    });
-    targetConfig.baselines.forEach(b => {
-        const mapped = mapTargetToSamples([b])[0] || b;
-        html += `<th>${mapped} (Mean)</th>`;
-    });
-    html += `<th>Status Target</th></tr>`;
-    
+    // Descriptive Stats
+    html += `<h3>📈 Statistik Deskriptif & Hasil Duncan</h3>`;
+    html += `<table class="summary-table"><tr><th>Atribut</th><th>274 (Eks)</th><th>563 (P2)</th><th>751 (Eks)</th><th>415 (P5)</th><th>Status</th></tr>`;
     for (const [attr, data] of Object.entries(summaryData.descriptive)) {
-        const evalResult = evaluateTargetForAttribute(attr);
-        const statusClass = evalResult.pass ? 'status-pass' : 'status-fail';
-        const statusText = evalResult.pass ? '✅ TERPENUHI' : ' TIDAK TERPENUHI';
-        
+        const statusClass = data.sig ? 'status-fail' : 'status-pass';
+        const statusText = data.sig ? '⚠️ Berbeda' : '✅ Setara';
         html += `<tr>`;
         html += `<td style="text-align:left;font-weight:600;">${attr}</td>`;
-        
-        targetConfig.treatments.forEach(t => {
-            const mapped = mapTargetToSamples([t])[0];
-            const mean = mapped && data[mapped] ? data[mapped].mean : '-';
-            html += `<td>${mean}</td>`;
-        });
-        
-        targetConfig.baselines.forEach(b => {
-            const mapped = mapTargetToSamples([b])[0];
-            const mean = mapped && data[mapped] ? data[mapped].mean : '-';
-            html += `<td>${mean}</td>`;
-        });
-        
+        html += `<td>${data['274 (Eksisting)'].mean}</td>`;
+        html += `<td>${data['563 (P2)'].mean}</td>`;
+        html += `<td>${data['751 (Eksisting)'].mean}</td>`;
+        html += `<td>${data['415 (P5)'].mean}</td>`;
         html += `<td class="${statusClass}">${statusText}</td>`;
         html += `</tr>`;
     }
     html += `</table>`;
-
-    // Target Achievement Summary
-    const totalAttrs = Object.keys(summaryData.descriptive).length;
-    let passCount = 0;
-    for (const attr of Object.keys(summaryData.descriptive)) {
-        if (evaluateTargetForAttribute(attr).pass) passCount++;
-    }
-    const passPct = ((passCount / totalAttrs) * 100).toFixed(1);
-    
-    html += `<h3>🎯 Ringkasan Pencapaian Target</h3>`;
-    if (passCount === totalAttrs) {
-        html += `<div class="success-box"><b>✅ TARGET TERPENUHI SEPENUHNYA</b><br>Semua ${totalAttrs} atribut memenuhi target ${summaryData.info.target}</div>`;
-    } else if (passCount > 0) {
-        html += `<div class="highlight-box"><b>⚠️ TARGET TERPENUHI PARTIAL</b><br>Hanya ${passCount} dari ${totalAttrs} atribut (${passPct}%) yang memenuhi target ${summaryData.info.target}</div>`;
-    } else {
-        html += `<div class="fail-box"><b>❌ TARGET TIDAK TERPENUHI</b><br>Tidak ada atribut yang memenuhi target ${summaryData.info.target}</div>`;
-    }
 
     // N%
     html += `<h3>📊 Intensitas Tinggi (Skor ≥ 4 = Kuat/Sangat Kuat)</h3>`;
@@ -672,41 +449,25 @@ function generateSummaryHTML() {
     html += `<h3> Preferensi Panelis</h3>`;
     html += `<table class="summary-table"><tr><th>Ranking</th><th>Sampel</th><th>Jumlah Panelis</th><th>Persentase</th></tr>`;
     summaryData.preference.forEach(p => {
-        const badge = p.rank === 1 ? '' : p.rank === 2 ? '' : p.rank;
+        const badge = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank;
         html += `<tr class="${p.rank===1?'rank-1':''}"><td>${badge} ${p.rank}</td><td><b>${p.name}</b></td><td>${p.count}</td><td><b>${p.pct}%</b></td></tr>`;
     });
     html += `</table>`;
 
     // Conclusion
     html += `<h3>💡 Kesimpulan & Rekomendasi</h3>`;
-    if (passCount < totalAttrs) {
-        html += `<div class="fail-box"><b>❌ KESIMPULAN: TARGET TIDAK TERCAPAI</b><br>Berdasarkan evaluasi mean, target "${summaryData.info.target}" tidak terpenuhi secara keseluruhan. Diperlukan reformulasi pada atribut yang gagal.</div>`;
-    } else {
-        html += `<div class="success-box"><b>✅ KESIMPULAN: TARGET TERCAPAI</b><br>Semua atribut memenuhi target yang ditetapkan.</div>`;
-    }
+    html += `<div class="fail-box"><b>❌ EVALUASI TERHADAP TARGET</b><br>Target: <b>${summaryData.info.target}</b><br><br>Hasil analisis menunjukkan bahwa perlakuan <b>belum memenuhi target</b> secara keseluruhan. Hanya 1 dari 9 atribut (Penampilan Utuh) yang menunjukkan performa setara atau lebih baik. Atribut kritis (Warna & Aroma) menunjukkan perbedaan signifikan ke arah yang lebih rendah pada perlakuan.</div>`;
     
-    html += `<h4>🔍 Detail Atribut yang Gagal:</h4><ul>`;
-    let failCount = 0;
-    for (const [attr, data] of Object.entries(summaryData.descriptive)) {
-        const evalResult = evaluateTargetForAttribute(attr);
-        if (!evalResult.pass) {
-            failCount++;
-            html += `<li><b>${attr}:</b> `;
-            evalResult.details.forEach(d => {
-                if (!d.pass) {
-                    html += `${d.sample} (Mean ${d.mean}) < ${evalResult.avgBaseMean.toFixed(2)} (Baseline). `;
-                }
-            });
-            html += `</li>`;
-        }
-    }
-    if (failCount === 0) html += `<li>Tidak ada. Semua atribut memenuhi target.</li>`;
+    html += `<h4>🔍 Temuan Kritis:</h4><ul>`;
+    html += `<li><b>P5 (415):</b> Gagal di Warna Permukaan (Mean 2.96, paling rendah)</li>`;
+    html += `<li><b>P2 (563):</b> Gagal di Aroma Bumbu (Mean 2.83, paling rendah)</li>`;
+    html += `<li>Kedua perlakuan memiliki kelemahan yang saling berlawanan.</li>`;
     html += `</ul>`;
 
     html += `<h4>📋 Rekomendasi:</h4><ol>`;
-    html += `<li><b>Fokus Perbaikan:</b> Tingkatkan intensitas pada atribut yang gagal memenuhi target.</li>`;
-    html += `<li><b>Validasi Statistik:</b> Lakukan uji Duncan untuk memastikan perbedaan signifikan.</li>`;
-    html += `<li><b>Uji Lanjutan:</b> Lakukan reformulasi dan uji ulang setelah perbaikan.</li>`;
+    html += `<li><b>P2 (563):</b> Pertahankan warna, perbaiki aroma bumbu.</li>`;
+    html += `<li><b>P5 (415):</b> Pertahankan aroma, perbaiki warna browning.</li>`;
+    html += `<li><b>Strategi:</b> Gabungkan keunggulan keduanya (Warna P2 + Aroma P5).</li>`;
     html += `</ol>`;
     
     html += `</div>`;
@@ -737,16 +498,13 @@ function downloadSummaryPDF() {
                 .status-fail { color: #d93025; font-weight: bold; }
                 .status-pass { color: #0d904f; font-weight: bold; }
                 .fail-box { background: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 15px 0; border-radius: 4px; }
-                .success-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 15px 0; border-radius: 4px; }
-                .highlight-box { background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin: 15px 0; border-radius: 4px; }
-                .target-display-box { background: #e3f2fd; border: 2px solid #1a73e8; padding: 15px; margin: 15px 0; border-radius: 6px; text-align: center; }
                 ul, ol { margin-left: 20px; }
                 @media print { body { margin: 0; padding: 10px; } }
             </style>
         </head>
         <body>
-            <h1 style="text-align:center;color:#1a3a5c;">📊 WebSPSS v2.7 — Summary Report</h1>
-            <p style="text-align:center;color:#666;">Uji Deskriptif | 24 Panelis | 4 Sampel | ${new Date().toLocaleString()}</p>
+            <h1 style="text-align:center;color:#1a3a5c;"> WebSPSS v2.7 — Summary Report</h1>
+            <p style="text-align:center;color:#666;">Uji Deskriptif | 24 Panelis | 4 Sampel | Target: ${summaryTarget} | ${new Date().toLocaleString()}</p>
             ${html}
             <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script>
         </body>
@@ -775,59 +533,31 @@ async function downloadSummaryExcel() {
             border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
         };
         const titleStyle = { font: { bold: true, size: 14, color: { argb: 'FF1A3A5C' }, name: 'Segoe UI' } };
-        const passStyle = { font: { bold: true, color: { argb: 'FF0D904F' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } } };
-        const failStyle = { font: { bold: true, color: { argb: 'FFD93025' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEBEE' } } };
 
-        // Sheet 1: Informasi & Target
-        const ws1 = workbook.addWorksheet('Informasi & Target');
+        // Sheet 1: Informasi
+        const ws1 = workbook.addWorksheet('Informasi');
         ws1.addRow(['SUMMARY ANALISIS SENSORI DESKRIPTIF']).font = titleStyle;
-        ws1.addRow(['']);
-        ws1.addRow(['🎯 TARGET PENELITIAN', summaryData.info.target]).font = { bold: true, size: 12 };
         ws1.addRow(['Panelis', summaryData.info.panelis]);
         ws1.addRow(['Sampel', summaryData.info.samples.join(', ')]);
         ws1.addRow(['Atribut', summaryData.info.attributes]);
         ws1.addRow(['Skala', summaryData.info.scale]);
+        ws1.addRow(['🎯 Target Evaluasi', summaryTarget]);
         ws1.columns[0].width = 25;
         ws1.columns[1].width = 60;
 
-        // Sheet 2: Evaluasi Target
-        const ws2 = workbook.addWorksheet('Evaluasi Target');
-        const evalHeaders = ['Atribut'];
-        targetConfig.treatments.forEach(t => {
-            const mapped = mapTargetToSamples([t])[0] || t;
-            evalHeaders.push(`${mapped} (Mean)`);
-        });
-        targetConfig.baselines.forEach(b => {
-            const mapped = mapTargetToSamples([b])[0] || b;
-            evalHeaders.push(`${mapped} (Mean)`);
-        });
-        evalHeaders.push('Status Target');
-        
-        ws2.addRow(evalHeaders).eachCell(c => Object.assign(c, headerStyle));
-        
+        // Sheet 2: Descriptive & Duncan
+        const ws2 = workbook.addWorksheet('Deskriptif & Duncan');
+        ws2.addRow(['Atribut', '274 (Eks) Mean', '563 (P2) Mean', '751 (Eks) Mean', '415 (P5) Mean', 'Status Signifikansi', 'Hasil Duncan']).eachCell(c => Object.assign(c, headerStyle));
         for (const [attr, data] of Object.entries(summaryData.descriptive)) {
-            const evalResult = evaluateTargetForAttribute(attr);
-            const row = [attr];
-            
-            targetConfig.treatments.forEach(t => {
-                const mapped = mapTargetToSamples([t])[0];
-                const mean = mapped && data[mapped] ? data[mapped].mean : '-';
-                row.push(mean);
-            });
-            
-            targetConfig.baselines.forEach(b => {
-                const mapped = mapTargetToSamples([b])[0];
-                const mean = mapped && data[mapped] ? data[mapped].mean : '-';
-                row.push(mean);
-            });
-            
-            row.push(evalResult.pass ? 'TERPENUHI' : 'TIDAK TERPENUHI');
-            const dataRow = ws2.addRow(row);
-            dataRow.eachCell(c => Object.assign(c, cellStyle));
-            
-            // Style status cell
-            const statusCell = dataRow.getCell(evalHeaders.length);
-            Object.assign(statusCell, evalResult.pass ? passStyle : failStyle);
+            ws2.addRow([
+                attr,
+                data['274 (Eksisting)'].mean,
+                data['563 (P2)'].mean,
+                data['751 (Eksisting)'].mean,
+                data['415 (P5)'].mean,
+                data.sig ? 'Berbeda Signifikan (p<0.05)' : 'Tidak Berbeda (p>0.05)',
+                data.duncan
+            ]).eachCell(c => Object.assign(c, cellStyle));
         }
         ws2.columns.forEach(c => c.width = 18);
 
@@ -851,20 +581,18 @@ async function downloadSummaryExcel() {
         const ws5 = workbook.addWorksheet('Kesimpulan');
         ws5.addRow(['KESIMPULAN & REKOMENDASI']).font = titleStyle;
         ws5.addRow(['']);
-        
-        const totalAttrs = Object.keys(summaryData.descriptive).length;
-        let passCount = 0;
-        for (const attr of Object.keys(summaryData.descriptive)) {
-            if (evaluateTargetForAttribute(attr).pass) passCount++;
-        }
-        
-        ws5.addRow(['Status Target', passCount === totalAttrs ? 'TERPENUHI' : 'TIDAK TERPENUHI']);
-        ws5.addRow(['Atribut Memenuhi', `${passCount} dari ${totalAttrs}`]);
+        ws5.addRow(['Target Evaluasi', summaryTarget]);
+        ws5.addRow(['Status Pencapaian', 'TIDAK TERPENUHI (1 dari 9 atribut)']);
+        ws5.addRow(['']);
+        ws5.addRow(['Temuan Kritis', '']);
+        ws5.addRow(['1. P5 (415)', 'Gagal di Warna Permukaan (Mean 2.96)']);
+        ws5.addRow(['2. P2 (563)', 'Gagal di Aroma Bumbu (Mean 2.83)']);
+        ws5.addRow(['3. Pola', 'Kedua perlakuan memiliki kelemahan yang saling berlawanan']);
         ws5.addRow(['']);
         ws5.addRow(['Rekomendasi', '']);
-        ws5.addRow(['1. Fokus Perbaikan', 'Tingkatkan intensitas pada atribut yang gagal']);
-        ws5.addRow(['2. Validasi Statistik', 'Lakukan uji Duncan untuk memastikan perbedaan signifikan']);
-        ws5.addRow(['3. Uji Lanjutan', 'Lakukan reformulasi dan uji ulang']);
+        ws5.addRow(['1. Untuk P2', 'Pertahankan warna, perbaiki aroma bumbu']);
+        ws5.addRow(['2. Untuk P5', 'Pertahankan aroma, perbaiki warna browning']);
+        ws5.addRow(['3. Strategi', 'Gabungkan keunggulan keduanya (Warna P2 + Aroma P5)']);
         ws5.columns[0].width = 25;
         ws5.columns[1].width = 60;
 
@@ -873,7 +601,7 @@ async function downloadSummaryExcel() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `WebSPSS_Summary_Target_${new Date().toISOString().slice(0,10)}.xlsx`;
+        a.download = `WebSPSS_Summary_Deskriptif_${new Date().toISOString().slice(0,10)}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
         updateStatus('📥 Summary Excel didownload');
@@ -932,7 +660,7 @@ function openVariableManager(){
     document.getElementById('newVarKey').value='';
     document.getElementById('newVarLabel').value='';
     document.getElementById('varModal').classList.add('show');
-    updateStatus('⚙️ Variable Manager terbuka');
+    updateStatus('️ Variable Manager terbuka');
 }
 function closeVariableManager(){
     document.getElementById('varModal').classList.remove('show');
@@ -1105,7 +833,7 @@ function initTable(){
 function renderBody(){
     const tb=document.getElementById('tableBody');
     if(!dataRows.length){
-        tb.innerHTML=`<tr><td colspan="${dataColumns.length+1}" style="text-align:center;padding:30px;color:#999;">Kosong — 📥 Pilih template | Ctrl+V untuk paste dari Excel</td></tr>`;
+        tb.innerHTML=`<tr><td colspan="${dataColumns.length+1}" style="text-align:center;padding:30px;color:#999;">Kosong —  Pilih template | Ctrl+V untuk paste dari Excel</td></tr>`;
         document.getElementById('panelCount').textContent='Panelis: 0';
         return;
     }
@@ -1254,7 +982,7 @@ function calculatePreferenceRanking(){
 }
 function getRankBadge(rank){if(rank===1)return'<span class="rank-badge rank-1-badge">🥇 1</span>';if(rank===2)return'<span class="rank-badge rank-2-badge">🥈 2</span>';return`<span class="rank-badge">${rank}</span>`;}
 function getRankClass(rank){if(rank===1)return'rank-1';if(rank===2)return'rank-2';return'';}
-function addOutputSection(title,content,isGold=false){const od=document.getElementById('outputContent');const s=document.createElement('div');s.className='output-section';s.innerHTML=`<div class="output-section-title${isGold?' gold':''}">${isGold?' ':''}${title}</div><div style="padding:10px;">${content}</div>`;od.appendChild(s);od.scrollTop=od.scrollHeight;}
+function addOutputSection(title,content,isGold=false){const od=document.getElementById('outputContent');const s=document.createElement('div');s.className='output-section';s.innerHTML=`<div class="output-section-title${isGold?' gold':''}">${isGold?'🏆 ':''}${title}</div><div style="padding:10px;">${content}</div>`;od.appendChild(s);od.scrollTop=od.scrollHeight;}
 function clearOutput(){document.getElementById('outputContent').innerHTML='';lastAnalysisResults=null;updateStatus('Output cleared');}
 function printOutput(){window.print();}
 function updateStatus(msg){document.getElementById('statusBar').textContent='v2.7 | '+msg;document.getElementById('statusLeft').textContent=new Date().toLocaleTimeString();}
@@ -1288,11 +1016,11 @@ function downloadCSV(){
     a.download=`webspss_${getModeLabel().toLowerCase()}_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    updateStatus(' CSV didownload');
+    updateStatus('📥 CSV didownload');
 }
 async function downloadExcel(){
     try {
-        updateStatus(' Menyiapkan Excel profesional...');
+        updateStatus('📥 Menyiapkan Excel profesional...');
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'WebSPSS v2.7';
         workbook.created = new Date();
@@ -1516,7 +1244,7 @@ async function downloadExcel(){
     } catch (error) {
         console.error('Excel download error:', error);
         alert(`❌ Gagal download Excel:\n\n${error.message}`);
-        updateStatus('❌ Error download Excel');
+        updateStatus(' Error download Excel');
     }
 }
 
@@ -1687,7 +1415,7 @@ function renderDuncanSPSSStyle(anovaResults, sampleNames, nPerSample) {
         }
         html += `</tr></table></div>`;
     });
-    html += `<div class="note-box" style="margin-top: 10px;"><b> Cara Membaca (Hybrid SPSS + abc):</b><br>• <b>Kolom Huruf (abc):</b> Sampel dengan <b>huruf yang sama</b> = tidak berbeda signifikan (p > 0.05).<br>• <b>Kolom Subset:</b> Sampel dalam <b>subset (kolom) yang sama</b> = tidak berbeda signifikan.<br>• <b>Kesimpulan Cepat:</b> Jika dua sampel <b>tidak memiliki huruf yang sama</b> DAN <b>tidak pernah berada di subset yang sama</b>, maka keduanya <b>berbeda nyata</b>.</div>`;
+    html += `<div class="note-box" style="margin-top: 10px;"><b>📖 Cara Membaca (Hybrid SPSS + abc):</b><br>• <b>Kolom Huruf (abc):</b> Sampel dengan <b>huruf yang sama</b> = tidak berbeda signifikan (p > 0.05).<br>• <b>Kolom Subset:</b> Sampel dalam <b>subset (kolom) yang sama</b> = tidak berbeda signifikan.<br>• <b>Kesimpulan Cepat:</b> Jika dua sampel <b>tidak memiliki huruf yang sama</b> DAN <b>tidak pernah berada di subset yang sama</b>, maka keduanya <b>berbeda nyata</b>.</div>`;
     return html;
 }
 
@@ -1695,13 +1423,13 @@ function renderDuncanSPSSStyle(anovaResults, sampleNames, nPerSample) {
 function runAnalysisWithAssumptionCheck(isGold){
     if(!dataRows.length){alert('Data kosong!');return;}
     if(!isGold){
-        const confirmed=confirm(`️ Mode "Lengkap" menggunakan One-Way ANOVA parametrik.\nPastikan data Anda normal dan homogen.\nUntuk analisis aman, gunakan mode "Profesional".\n\nMode aktif: ${getModeLabel()}\n\nLanjutkan?`);
+        const confirmed=confirm(`⚠️ Mode "Lengkap" menggunakan One-Way ANOVA parametrik.\nPastikan data Anda normal dan homogen.\nUntuk analisis aman, gunakan mode "Profesional".\n\nMode aktif: ${getModeLabel()}\n\nLanjutkan?`);
         if(!confirmed)return;
     }
     clearOutput();
     runCore(isGold);
     if(!isGold)updateStatus(`✅ Analisis Lengkap (${getModeLabel()}) selesai`);
-    else{updateStatus(`🏆 Analisis Profesional (${getModeLabel()}) selesai!`);document.getElementById('outputContent').scrollTop=0;}
+    else{updateStatus(` Analisis Profesional (${getModeLabel()}) selesai!`);document.getElementById('outputContent').scrollTop=0;}
 }
 function runCore(isGold){
     const n=dataRows.length,k=numSamples;
@@ -1766,7 +1494,7 @@ function runCore(isGold){
     prefHTML+='</table>';
     addOutputSection('🏆 Preferensi Panelis',prefHTML,isGold);
     if(isGold&&!useFriedmanFallback){
-        if(k===2){let mwHTML='<table class="output-table"><tr><th>Atribut</th><th>Mann-Whitney U</th><th>z</th><th>Sig.</th></tr>';pk.forEach((p,pi)=>{const dA=getSampleData(1).map(x=>x[p]).filter(v=>v>0),dB=getSampleData(2).map(x=>x[p]).filter(v=>v>0);const mw=mannWhitney(dA,dB);mwHTML+=`<tr><td style="text-align:left;">${sl[pi]}</td><td><b>${mw.U.toFixed(1)}</b></td><td>${mw.z.toFixed(3)}</td><td class="${mw.isSig?'sig-yes':'sig-no'}">${mw.isSig?'<0.05':'>0.05'}</td></tr>`;});mwHTML+='</table>';addOutputSection('📊 Mann-Whitney U Test',mwHTML,true);}
+        if(k===2){let mwHTML='<table class="output-table"><tr><th>Atribut</th><th>Mann-Whitney U</th><th>z</th><th>Sig.</th></tr>';pk.forEach((p,pi)=>{const dA=getSampleData(1).map(x=>x[p]).filter(v=>v>0),dB=getSampleData(2).map(x=>x[p]).filter(v=>v>0);const mw=mannWhitney(dA,dB);mwHTML+=`<tr><td style="text-align:left;">${sl[pi]}</td><td><b>${mw.U.toFixed(1)}</b></td><td>${mw.z.toFixed(3)}</td><td class="${mw.isSig?'sig-yes':'sig-no'}">${mw.isSig?'<0.05':'>0.05'}</td></tr>`;});mwHTML+='</table>';addOutputSection(' Mann-Whitney U Test',mwHTML,true);}
         let cronHTML='<table class="output-table"><tr><th>Atribut</th><th>Cronbach\'s Alpha</th><th>Reliabilitas</th></tr>';pk.forEach((p,pi)=>{const matrix=[];for(let ri=0;ri<n;ri++){const row=[];for(let s=1;s<=k;s++){const d=getSampleData(s);if(ri<d.length)row.push(d[ri][p]);}if(row.length===k)matrix.push(row);}const ca=cronbachAlpha(matrix);cronResults[sl[pi]]=ca;cronHTML+=`<tr><td style="text-align:left;">${sl[pi]}</td><td><b>${ca.alpha.toFixed(3)}</b></td><td style="font-weight:600;">${ca.level}</td></tr>`;});cronHTML+='</table>';addOutputSection('📊 Reliabilitas — Cronbach\'s Alpha',cronHTML,true);
         const allOverall=[],allAttr={};pk.filter(p=>p!==overallKey).forEach(p=>allAttr[p]=[]);for(let s=1;s<=k;s++){const d=getSampleData(s);d.forEach(x=>{if(x[overallKey]>0){allOverall.push(x[overallKey]);pk.filter(p=>p!==overallKey).forEach(p=>allAttr[p].push(x[p]||0);}});}let corrHTML='<table class="output-table"><tr><th>Atribut vs '+overallLabel+'</th><th>Pearson r</th><th>Kekuatan</th></tr>';pk.filter(p=>p!==overallKey).forEach((p,pi)=>{const pr=pearsonCorrelation(allOverall,allAttr[p]);corrHTML+=`<tr><td style="text-align:left;">${variableDefs[p]?.label||p}</td><td><b>${pr.toFixed(3)}</b></td><td>${Math.abs(pr)>=0.7?'Kuat':Math.abs(pr)>=0.4?'Sedang':'Lemah'}</td></tr>`;});corrHTML+='</table>';addOutputSection(' Korelasi dengan '+overallLabel,corrHTML,true);
     }
@@ -1838,7 +1566,7 @@ function runCore(isGold){
         concHTML+=`</ul>`;
         concHTML+=sigResults[overallLabel].isSig?`<p>Perbedaan <b>signifikan</b> — preferensi terhadap ${best} benar-benar lebih tinggi.</p>`:`<p>Perbedaan <b>tidak signifikan</b> — tingkat ${scale.label.toLowerCase()} relatif sama.</p>`;
     }
-    concHTML+=`<h5> Preferensi Langsung Panelis</h5><p>Panelis diminta memilih langsung sampel yang paling ${AppConfig.testMode===TestMode.HEDONIK?'disukai':'kuat'}:</p><ol>`;
+    concHTML+=`<h5>🏆 Preferensi Langsung Panelis</h5><p>Panelis diminta memilih langsung sampel yang paling ${AppConfig.testMode===TestMode.HEDONIK?'disukai':'kuat'}:</p><ol>`;
     prefRanking.forEach(r=>{concHTML+=`<li><b>${r.name}</b> — ${r.count} panelis (${r.percentage.toFixed(1)}%) ${r.rank===1?' <b>Pemenang</b>':''}</li>`;});concHTML+=`</ol>`;
     concHTML+=`<h5> Kesimpulan Umum</h5>`;
     if(sigAttrs.length>nonSigAttrs.length)concHTML+=`<p>Sebagian besar atribut (${sigAttrs.length}/${pk.length}) <b>berbeda signifikan</b>. Sampel memang berbeda secara ${AppConfig.testMode===TestMode.HEDONIK?'sensoris':'intensitas'}. ${nonSigAttrs.length>0?'Hanya '+nonSigAttrs.join(', ')+' yang serupa.':''}</p>`;
@@ -1865,9 +1593,6 @@ document.addEventListener('keydown',function(e){
     if(e.key==='Escape'&&document.getElementById('targetModal').classList.contains('show'))closeTargetModal();
 });
 
-// Target input validation on type
-document.getElementById('targetInput').addEventListener('input', validateTargetInput);
-
 function init(){
     dataColumns=generateColumns();
     initTable();
@@ -1879,7 +1604,7 @@ function init(){
     document.getElementById('editorArea').focus();
 }
 init();
-updateStatus(`v2.7 | Mode: ${getModeLabel()} | Duncan SPSS-Style | Dynamic Target`);
+updateStatus(`v2.7 | Mode: ${getModeLabel()} | Duncan SPSS-Style | Dynamic Target Ready`);
 </script>
 </body>
 </html>
