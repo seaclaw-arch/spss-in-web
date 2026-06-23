@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSPSS v2.0 — Hedonik & Deskriptif</title>
+    <title>WebSPSS v2.2 — Enhanced Narrative</title>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
         :root {
@@ -119,9 +119,9 @@
 <body>
 <div class="title-bar">
     <div style="display:flex;align-items:center;">
-        <h1>📊 WebSPSS v2.1</h1>
+        <h1>📊 WebSPSS v2.2</h1>
         <span id="modeIndicator" class="mode-indicator hedonik">HEDONIK</span>
-        <span class="subtitle" style="margin-left:10px;font-size:10px;color:#a0c4ff;">Uji Hedonik & Deskriptif — Skala 1-5</span>
+        <span class="subtitle" style="margin-left:10px;font-size:10px;color:#a0c4ff;">Enhanced Narrative — Auto Explanation</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
         <span id="panelCount" style="font-size:10px;">Panelis: 0</span>
@@ -195,8 +195,8 @@
     <div class="output-content" id="outputContent">
         <div style="text-align:center;color:#aaa;padding:30px;">
             <p style="font-size:32px;">📊</p>
-            <p><b>WebSPSS v2.1</b></p>
-            <p style="font-size:10px;">Uji Hedonik (Kesukaan) & Deskriptif (Intensitas) | Skala 1-5</p>
+            <p><b>WebSPSS v2.2</b></p>
+            <p style="font-size:10px;">Enhanced Narrative — Auto Explanation for All Tests</p>
             <p style="font-size:10px;margin-top:8px;">Klik tombol <b>🔄 Mode</b> di toolbar untuk beralih antara Hedonik ↔ Deskriptif</p>
         </div>
     </div>
@@ -204,7 +204,7 @@
 </div>
 <div class="footer-bar">
     <span id="statusLeft">Ready</span>
-    <span id="statusBar">v2.1 | Hedonik & Deskriptif | All Tools Working</span>
+    <span id="statusBar">v2.2 | Enhanced Narrative | Auto Explanation</span>
 </div>
 
 <script>
@@ -602,7 +602,7 @@ function getRankClass(rank){if(rank===1)return'rank-1';if(rank===2)return'rank-2
 function addOutputSection(title,content,isGold=false){const od=document.getElementById('outputContent');const s=document.createElement('div');s.className='output-section';s.innerHTML=`<div class="output-section-title${isGold?' gold':''}">${isGold?'🏆 ':''}${title}</div><div style="padding:10px;">${content}</div>`;od.appendChild(s);od.scrollTop=od.scrollHeight;}
 function clearOutput(){document.getElementById('outputContent').innerHTML='';lastAnalysisResults=null;updateStatus('Output cleared');}
 function printOutput(){window.print();}
-function updateStatus(msg){document.getElementById('statusBar').textContent='v2.1 | '+msg;document.getElementById('statusLeft').textContent=new Date().toLocaleTimeString();}
+function updateStatus(msg){document.getElementById('statusBar').textContent='v2.2 | '+msg;document.getElementById('statusLeft').textContent=new Date().toLocaleTimeString();}
 
 // ==================== PDF EXPORT (MODE-AWARE) ====================
 function downloadPDF(){
@@ -610,7 +610,7 @@ function downloadPDF(){
     const modeLabel = getModeLabel();
     const scale = getActiveScale();
     const pdfWindow=window.open('','_blank','width=1000,height=800');
-    pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report — ${modeLabel}</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;font-size:10px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;font-size:10px;border:1px solid #ddd;}canvas{max-width:100%;}@media print{body{margin:0;padding:10px;}}</style></head><body><h2>📊 WebSPSS v2.1 — Laporan Uji ${modeLabel}</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | Skala: ${scale.label} ${scale.points}-poin | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`);
+    pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report — ${modeLabel}</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;font-size:10px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;font-size:10px;border:1px solid #ddd;}canvas{max-width:100%;}@media print{body{margin:0;padding:10px;}}</style></head><body><h2>📊 WebSPSS v2.2 — Laporan Uji ${modeLabel}</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | Skala: ${scale.label} ${scale.points}-poin | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`);
     pdfWindow.document.close();
     updateStatus(`📄 PDF ${modeLabel} siap`);
 }
@@ -640,7 +640,7 @@ function downloadCSV(){
 async function downloadExcel(){
     updateStatus('📥 Menyiapkan Excel profesional...');
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'WebSPSS v2.1';
+    workbook.creator = 'WebSPSS v2.2';
     workbook.created = new Date();
     
     const modeLabel = getModeLabel();
@@ -1248,7 +1248,7 @@ function runCore(isGold){
 
     lastAnalysisResults={anovaResults,friedResults,sigResults};
 
-    // KESIMPULAN (MODE-AWARE)
+    // ==================== KESIMPULAN DENGAN NARASI LENGKAP ====================
     const sigAttrs=Object.entries(anovaResults).filter(([,v])=>v.sig).map(([k])=>k);
     const nonSigAttrs=Object.entries(anovaResults).filter(([,v])=>!v.sig).map(([k])=>k);
     const winner=prefRanking[0],second=prefRanking.length>1?prefRanking[1]:null;
@@ -1268,63 +1268,133 @@ function runCore(isGold){
         concHTML+=`<div class="warning-box"><b>⚠️ Catatan:</b> Asumsi parametrik (normalitas & homogenitas) tidak terpenuhi. <b>Friedman Test (non-parametrik)</b> digunakan sebagai acuan utama. Hasil ANOVA tetap ditampilkan sebagai referensi.</div>`;
     }
 
-    concHTML+=`<h5>📊 Hasil Perbandingan Antar Sampel (${useFriedmanFallback?'Friedman Test':modelName})</h5>`;
-    concHTML+=`<p>${useFriedmanFallback?'Friedman Test':'ANOVA'} menjawab: <b>"Apakah ada perbedaan ${AppConfig.testMode===TestMode.HEDONIK?'kesukaan':'intensitas'} yang nyata antar sampel?"</b></p>`;
-    
-    if(sigAttrs.length>0){
-        concHTML+=`<div class="insight"><b>✅ Atribut BERBEDA SIGNIFIKAN (p < 0.05):</b><br>`;
-        sigAttrs.forEach(attr=>{
-            const ar=anovaResults[attr],fr=friedResults[attr];
-            concHTML+=`<b>${attr}</b> (${useFriedmanFallback?'χ²='+fr?.chi2.toFixed(2):'F='+ar.F.toFixed(2)}) — Panelis merasakan perbedaan dan memiliki ${AppConfig.testMode===TestMode.HEDONIK?'preferensi berbeda':'penilaian intensitas berbeda'}.<br>`;
+    // ==================== NARASI LENGKAP UNTUK ATRIBUT SIGNIFIKAN ====================
+    if(sigAttrs.length > 0) {
+        concHTML += `<h5>📊 Analisis Detail Atribut BERBEDA SIGNIFIKAN (p &lt; 0.05)</h5>`;
+        concHTML += `<div class="insight">`;
+        
+        sigAttrs.forEach(attr => {
+            const ar = anovaResults[attr];
+            const fr = friedResults[attr];
+            const attrIndex = sl.indexOf(attr);
+            const p = pk[attrIndex];
+            
+            // 1. Cari Mean Tertinggi dan Terendah
+            let maxMean = -1, minMean = 999, maxSample = '', minSample = '';
+            for(let s = 1; s <= k; s++) {
+                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+                const m = mean(data);
+                if(m > maxMean) { maxMean = m; maxSample = sampleNames[s-1]; }
+                if(m < minMean) { minMean = m; minSample = sampleNames[s-1]; }
+            }
+
+            // 2. Narasi Statistik Deskriptif
+            concHTML += `<p><b> ${attr}:</b><br>`;
+            concHTML += `Berdasarkan <b>statistik deskriptif</b>, <b>${maxSample}</b> menunjukkan ${AppConfig.testMode===TestMode.HEDONIK?'tingkat kesukaan':'intensitas'} tertinggi (Mean = ${maxMean.toFixed(2)}), sedangkan <b>${minSample}</b> paling rendah (Mean = ${minMean.toFixed(2)}).<br>`;
+            
+            // 3. Narasi ANOVA & Effect Size
+            const es = calculateEffectSize(ar.ssSample, ar.ssTotal, ar.dfBetween, ar.msError);
+            concHTML += `Uji <b>One-Way ANOVA</b> mengonfirmasi adanya perbedaan yang signifikan secara statistik (F(${ar.dfBetween}, ${ar.dfError}) = ${ar.F.toFixed(2)}, p &lt; 0.05) dengan ukuran efek <b>${es.interpretation}</b> (η² = ${es.etaSquared}, ω² = ${es.omegaSquared}). Ini berarti ${(es.etaSquared*100).toFixed(1)}% variasi pada atribut ini dapat dijelaskan oleh perbedaan perlakuan.<br>`;
+            
+            // 4. Narasi Friedman (Validasi)
+            if(fr && fr.isSig) {
+                concHTML += `Temuan ini divalidasi oleh <b>Uji Friedman</b> (non-parametrik) yang juga menunjukkan perbedaan nyata (χ²(${fr.df}) = ${fr.chi2.toFixed(2)}, p &lt; 0.05), memperkuat kekokohan hasil analisis.<br>`;
+            }
+
+            // 5. Narasi Duncan (Pengelompokan)
+            concHTML += `Uji lanjut <b>Duncan</b> mengelompokkan sampel berdasarkan kemirupan: `;
+            const groups = duncanMRT(ar.sampleMeans, ar.msError, ar.n, ar.dfError);
+            const groupText = [];
+            ar.sampleMeans.forEach((m, i) => {
+                groupText.push(`<b>${sampleNames[i]}</b> [${m.toFixed(2)}] = "${groups[i]}"`);
+            });
+            concHTML += groupText.join(', ') + '.<br>';
+            
+            // Interpretasi Duncan
+            const uniqueGroups = [...new Set(groups.map(g => g.split('').sort().join('')))];
+            if(uniqueGroups.length > 1) {
+                const differentSamples = [];
+                for(let i=0; i<groups.length; i++) {
+                    for(let j=i+1; j<groups.length; j++) {
+                        if(!groups[i].split('').some(c => groups[j].includes(c))) {
+                            differentSamples.push(`${sampleNames[i]} vs ${sampleNames[j]}`);
+                        }
+                    }
+                }
+                if(differentSamples.length > 0) {
+                    concHTML += `<i>Interpretasi:</i> Sampel ${differentSamples.join(', ')} <b>berbeda nyata</b> karena tidak memiliki huruf Duncan yang sama.`;
+                }
+            }
+            concHTML += `</p><br>`;
         });
-        concHTML+=`</div><p><b>Apa artinya?</b> Perbedaan skor antar sampel <b>bukan kebetulan</b>. Panelis benar-benar merasakan perbedaan pada atribut ini.</p>`;
-    }
-    if(nonSigAttrs.length>0){
-        concHTML+=`<div class="warning-box"><b>⚠️ Atribut TIDAK BERBEDA SIGNIFIKAN (p > 0.05):</b><br>`;
-        nonSigAttrs.forEach(attr=>{
-            const ar=anovaResults[attr],fr=friedResults[attr];
-            concHTML+=`<b>${attr}</b> (${useFriedmanFallback?'χ²='+fr?.chi2.toFixed(2):'F='+ar.F.toFixed(2)}) — Panelis menilai relatif sama.<br>`;
-        });
-        concHTML+=`</div><p><b>Apa artinya?</b> Perbedaan skor antar sampel <b>kemungkinan hanya kebetulan</b>. Tingkat ${AppConfig.testMode===TestMode.HEDONIK?'kesukaan':'intensitas'} panelis mirip untuk atribut ini.</p>`;
+        concHTML += `</div>`;
     }
 
-    concHTML+=`<h5>🔬 Pengelompokan Sampel (Duncan)</h5>`;
-    concHTML+=`<p>Uji Duncan mengelompokkan sampel. <b>Huruf sama = tidak berbeda signifikan.</b> Contoh: A="a", B="a" → tidak berbeda. A="a", C="b" → berbeda. Satu sampel bisa multi-huruf ("ab").</p>`;
+    // ==================== NARASI UNTUK ATRIBUT TIDAK SIGNIFIKAN ====================
+    if(nonSigAttrs.length > 0) {
+        concHTML += `<h5>⚠️ Atribut TIDAK BERBEDA SIGNIFIKAN (p &gt; 0.05)</h5>`;
+        concHTML += `<div class="warning-box">`;
+        
+        nonSigAttrs.forEach(attr => {
+            const ar = anovaResults[attr];
+            const fr = friedResults[attr];
+            const attrIndex = sl.indexOf(attr);
+            const p = pk[attrIndex];
+            
+            // Cari range mean
+            let maxMean = -1, minMean = 999;
+            for(let s = 1; s <= k; s++) {
+                const data = getSampleData(s).map(x => x[p]).filter(v => v > 0);
+                const m = mean(data);
+                if(m > maxMean) maxMean = m;
+                if(m < minMean) minMean = m;
+            }
+            const range = maxMean - minMean;
+            
+            concHTML += `<p><b>${attr}:</b> Meskipun secara numerik terdapat variasi (range mean = ${range.toFixed(2)}), uji <b>ANOVA</b> menunjukkan perbedaan ini <b>tidak signifikan secara statistik</b> (F = ${ar.F.toFixed(2)}, p &gt; 0.05, η² = ${calculateEffectSize(ar.ssSample, ar.ssTotal, ar.dfBetween, ar.msError).etaSquared}).`;
+            
+            if(fr && !fr.isSig) {
+                concHTML += ` Hasil ini konsisten dengan <b>Uji Friedman</b> (χ² = ${fr.chi2.toFixed(2)}, p &gt; 0.05).`;
+            }
+            
+            concHTML += ` Dengan demikian, secara statistik semua sampel dianggap <b>memiliki ${AppConfig.testMode===TestMode.HEDONIK?'tingkat kesukaan':'intensitas'} yang setara</b> pada atribut ini. Perbedaan yang terobservasi kemungkinan besar disebabkan oleh variabilitas acak antar panelis.<br><br></p>`;
+        });
+        
+        concHTML += `</div>`;
+    }
 
+    // Pengelompokan Duncan — dengan contoh cara membaca
+    concHTML+=`<h5>🔬 Cara Membaca Hasil Duncan</h5>`;
+    concHTML+=`<p>Uji Duncan mengelompokkan sampel. <b>Huruf sama = tidak berbeda signifikan.</b> Contoh: A="a", B="a" → tidak berbeda. A="a", C="b" → berbeda. Satu sampel bisa multi-huruf ("ab") yang berarti berada di antara dua kelompok.</p>`;
+
+    // Overall Liking — dengan detail signifikansi
     concHTML+=`<h5>⭐ Tingkat ${scale.label} Keseluruhan (${overallLabel})</h5>`;
     if(sigResults[overallLabel]){
         const best=sigResults[overallLabel].pctA>=sigResults[overallLabel].pctB?sampleNames[0]:sampleNames[1];
         const bestPct=Math.max(sigResults[overallLabel].pctA,sigResults[overallLabel].pctB);
         concHTML+=`<p>Berdasarkan % panelis dengan skor ≥ ${scale.threshold} (${scale.thresholdLabel}):</p><ul><li><b>${best}</b>: <b>${bestPct.toFixed(1)}%</b> panelis</li>`;
-        if(k===2){
-            const other=sigResults[overallLabel].pctA>=sigResults[overallLabel].pctB?sampleNames[1]:sampleNames[0];
-            concHTML+=`<li><b>${other}</b>: <b>${Math.min(sigResults[overallLabel].pctA,sigResults[overallLabel].pctB).toFixed(1)}%</b> panelis</li>`;
-        }
+        if(k===2){const other=sigResults[overallLabel].pctA>=sigResults[overallLabel].pctB?sampleNames[1]:sampleNames[0];concHTML+=`<li><b>${other}</b>: <b>${Math.min(sigResults[overallLabel].pctA,sigResults[overallLabel].pctB).toFixed(1)}%</b> panelis</li>`;}
         concHTML+=`</ul>`;
         concHTML+=sigResults[overallLabel].isSig?`<p>Perbedaan <b>signifikan</b> — preferensi terhadap ${best} benar-benar lebih tinggi.</p>`:`<p>Perbedaan <b>tidak signifikan</b> — tingkat ${scale.label.toLowerCase()} relatif sama.</p>`;
     }
 
+    // Preferensi — dengan label pemenang
     concHTML+=`<h5>🏆 Preferensi Langsung Panelis</h5><p>Panelis diminta memilih langsung sampel yang paling ${AppConfig.testMode===TestMode.HEDONIK?'disukai':'kuat'}:</p><ol>`;
-    prefRanking.forEach(r=>{
-        concHTML+=`<li><b>${r.name}</b> — ${r.count} panelis (${r.percentage.toFixed(1)}%) ${r.rank===1?'🥇 <b>Pemenang</b>':''}</li>`;
-    });
-    concHTML+=`</ol>`;
+    prefRanking.forEach(r=>{concHTML+=`<li><b>${r.name}</b> — ${r.count} panelis (${r.percentage.toFixed(1)}%) ${r.rank===1?'🥇 <b>Pemenang</b>':''}</li>`;});concHTML+=`</ol>`;
 
+    // Kesimpulan Umum — dengan interpretasi kontekstual
     concHTML+=`<h5>💡 Kesimpulan Umum</h5>`;
-    if(sigAttrs.length>nonSigAttrs.length){
-        concHTML+=`<p>Sebagian besar atribut (${sigAttrs.length}/${pk.length}) <b>berbeda signifikan</b>. Sampel memang berbeda secara ${AppConfig.testMode===TestMode.HEDONIK?'sensoris':'intensitas'}. ${nonSigAttrs.length>0?'Hanya '+nonSigAttrs.join(', ')+' yang serupa.':''}</p>`;
-    }else if(nonSigAttrs.length>sigAttrs.length){
-        concHTML+=`<p>Sebagian besar atribut (${nonSigAttrs.length}/${pk.length}) <b>tidak berbeda signifikan</b>. Sampel cenderung mirip. ${sigAttrs.length>0?'Namun '+sigAttrs.join(', ')+' berbeda signifikan.':''}</p>`;
-    }else{
-        concHTML+=`<p>Jumlah atribut berbeda (${sigAttrs.length}) dan tidak berbeda (${nonSigAttrs.length}) <b>seimbang</b>.</p>`;
-    }
+    if(sigAttrs.length>nonSigAttrs.length)concHTML+=`<p>Sebagian besar atribut (${sigAttrs.length}/${pk.length}) <b>berbeda signifikan</b>. Sampel memang berbeda secara ${AppConfig.testMode===TestMode.HEDONIK?'sensoris':'intensitas'}. ${nonSigAttrs.length>0?'Hanya '+nonSigAttrs.join(', ')+' yang serupa.':''}</p>`;
+    else if(nonSigAttrs.length>sigAttrs.length)concHTML+=`<p>Sebagian besar atribut (${nonSigAttrs.length}/${pk.length}) <b>tidak berbeda signifikan</b>. Sampel cenderung mirip. ${sigAttrs.length>0?'Namun '+sigAttrs.join(', ')+' berbeda signifikan.':''}</p>`;
+    else concHTML+=`<p>Jumlah atribut berbeda (${sigAttrs.length}) dan tidak berbeda (${nonSigAttrs.length}) <b>seimbang</b>.</p>`;
 
+    // Rekomendasi — lebih actionable
     concHTML+=`<div class="recommendation-box"><h5>📋 Rekomendasi</h5><ol>`;
     concHTML+=`<li><b>Produk Terbaik:</b> <b>${winner.name}</b> — preferensi tertinggi (${winner.percentage.toFixed(1)}%).</li>`;
     if(second)concHTML+=`<li><b>Alternatif:</b> <b>${second.name}</b> — preferensi ${second.percentage.toFixed(1)}%.</li>`;
     if(sigAttrs.length>0)concHTML+=`<li><b>Optimasi:</b> Atribut ${sigAttrs.join(', ')} — tingkatkan sampel dengan skor rendah.</li>`;
     concHTML+=`<li><b>QC:</b> Monitoring berkala di store.</li></ol></div>`;
-    concHTML+=`<p style="margin-top:15px;"><em>${modelName} — WebSPSS v2.1. Mode: <b>${modeLabel}</b>. ${isGold?'SNI ISO 4121:2009 compliant.':''}</em></p></div>`;
+    concHTML+=`<p style="margin-top:15px;"><em>${modelName} — WebSPSS v2.2. Mode: <b>${modeLabel}</b>. ${isGold?'SNI ISO 4121:2009 compliant.':''}</em></p></div>`;
     addOutputSection('📝 Kesimpulan & Rekomendasi',concHTML,isGold);
 }
 
@@ -1350,7 +1420,7 @@ function init(){
     document.getElementById('editorArea').focus();
 }
 init();
-updateStatus(`v2.1 | Mode: ${getModeLabel()} | All Tools Working`);
+updateStatus(`v2.2 | Mode: ${getModeLabel()} | Enhanced Narrative Active`);
 </script>
 </body>
 </html>
