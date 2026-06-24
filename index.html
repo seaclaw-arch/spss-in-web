@@ -446,6 +446,64 @@ function evaluateTargetFromResults(anovaResults) {
     return { passCount, total, details };
 }
 
+// ==================== P-VALUE CALCULATION ====================
+function lgamma(x) {
+    const cof = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let ser = 1.000000000190015;
+    let xx = x, yy = x;
+    let tmp = xx + 5.5;
+    tmp -= (xx + 0.5) * Math.log(tmp);
+    for (let j = 0; j < 6; j++) {
+        yy += 1;
+        ser += cof[j] / yy;
+    }
+    return -tmp + Math.log(2.5066282746310005 * ser / xx);
+}
+
+function contFrac(a, b, x) {
+    const maxIter = 200;
+    const eps = 1e-12;
+    let f = 1, C = 1, D = 1;
+    for (let j = 1; j <= maxIter; j++) {
+        const m2 = j*2;
+        // even step
+        D = 1 + ( - (a+m2/2) * (a+b+m2/2-1) * x / ((a+m2-1) * (a+m2)) ) * D;
+        if (Math.abs(D) < eps) D = eps;
+        C = 1 + ( - (b+m2/2) * (m2/2) * x / ((a+m2-1) * (a+m2)) ) / C;
+        if (Math.abs(C) < eps) C = eps;
+        D = 1/D;
+        const delta = C*D;
+        f *= delta;
+        // odd step
+        D = 1 + ( - (m2/2+1) * (a+b+m2/2) * x / ((a+m2) * (a+m2+1)) ) * D;
+        if (Math.abs(D) < eps) D = eps;
+        C = 1 + ( - (a+m2/2+1) * (b+m2/2) * x / ((a+m2+1) * (a+m2+2)) ) / C;
+        if (Math.abs(C) < eps) C = eps;
+        D = 1/D;
+        const delta2 = C*D;
+        f *= delta2;
+        if (Math.abs(delta-1) < eps && Math.abs(delta2-1) < eps) break;
+    }
+    return f;
+}
+
+function ibeta(a, b, x) {
+    if (x < 0 || x > 1) return 0;
+    if (x === 0 || x === 1) return x;
+    const front = Math.exp(lgamma(a+b) - lgamma(a) - lgamma(b) + a*Math.log(x) + b*Math.log(1-x));
+    if (x < (a+1)/(a+b+2)) {
+        return front * contFrac(a, b, x) / a;
+    } else {
+        return 1 - front * contFrac(b, a, 1-x) / b;
+    }
+}
+
+function fPValue(F, df1, df2) {
+    if (F <= 0) return 1;
+    const x = df2 / (df2 + df1 * F);
+    return 1 - ibeta(df2/2, df1/2, x);
+}
+
 // ==================== CUSTOM SUMMARY (ENHANCED) ====================
 function showCustomSummary() {
     if (!lastAnalysisResults || !lastAnalysisResults.anovaResults) {
@@ -504,6 +562,23 @@ function generateDynamicSummaryHTML() {
 
     // 2. Hasil Analisis Deskriptif & Duncan
     html += `<h3>📊 Hasil Analisis Deskriptif & Duncan</h3>`;
+
+    // NEW: Ringkasan Signifikansi per Atribut dengan P-value
+    html += `<h4>📊 Ringkasan Signifikansi per Atribut</h4>`;
+    html += `<table class="summary-table"><tr><th>Atribut</th>${sampleNames.map((n,i)=>`<th>${String.fromCharCode(65+i)} (Mean)</th>`).join('')}<th>Sig (P-value)</th><th>Keterangan</th></tr>`;
+    Object.keys(ar).forEach(attr => {
+        const a = ar[attr];
+        const pVal = a.pValue ?? null;
+        const isSig = a.sig;
+        html += `<tr><td>${escapeHtml(attr)}</td>`;
+        for (let s = 0; s < k; s++) {
+            html += `<td>${a.sampleMeans ? a.sampleMeans[s].toFixed(2) : '-'}</td>`;
+        }
+        html += `<td class="${isSig ? 'sig-yes' : 'sig-no'}">${pVal !== null ? pVal.toFixed(4) : 'N/A'}</td>`;
+        html += `<td class="${isSig ? 'sig-yes' : 'sig-no'}">${isSig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan'}</td></tr>`;
+    });
+    html += `</table>`;
+
     const sigAttrs = [];
     const nonSigAttrs = [];
     Object.keys(ar).forEach(attr => {
@@ -514,14 +589,12 @@ function generateDynamicSummaryHTML() {
         else nonSigAttrs.push(attr);
     });
 
-    // Atribut berbeda nyata
+    // Atribut berbeda nyata (detail dengan Duncan)
     if (sigAttrs.length > 0) {
         html += `<h4>🔍 Atribut Berbeda Nyata (${sigAttrs.length} atribut)</h4>`;
         html += `<table class="summary-table"><tr><th>Atribut</th><th>Sampel</th><th>Mean</th><th>Duncan</th><th>Keterangan</th></tr>`;
         sigAttrs.forEach(attr => {
             const a = ar[attr];
-            const attrIndex = sl.indexOf(attr);
-            const p = activeVariables[attrIndex];
             for (let s = 0; s < k; s++) {
                 const meanVal = a.sampleMeans ? a.sampleMeans[s] : 0;
                 const duncanGroup = a.duncanGroups ? a.duncanGroups[s] : '';
@@ -552,7 +625,7 @@ function generateDynamicSummaryHTML() {
             html += `<td class="sig-no">Tidak berbeda nyata</td></tr>`;
         });
         html += `</table>`;
-        html += `<p><b>Interpretasi:</b> ${nonSigAttrs.length} dari ${Object.keys(ar).length} atribut tidak menunjukkan perbedaan signifikan. Artinya, karakteristik sensoris sampel pada atribut-atribut ini relatif serupa.</p>`;
+        html += `<p><b>Interpretasi:</b> ${nonSigAttrs.length} dari ${Object.keys(ar).length} atribut tidak menunjukkan perbedaan signifikan.</p>`;
     }
 
     // 3. Preferensi
@@ -584,7 +657,6 @@ function generateDynamicSummaryHTML() {
             });
             html += `</table>`;
             html += `<p>Dari segi atribut, <b>${escapeHtml(name1)}</b> unggul pada ${unggul1} atribut, <b>${escapeHtml(name2)}</b> unggul pada ${unggul2} atribut.</p>`;
-            // Preferensi
             const pref1 = pref.ranking.find(r => r.name === name1);
             const pref2 = pref.ranking.find(r => r.name === name2);
             html += `<p>Preferensi panelis: <b>${escapeHtml(name1)}</b> ${pref1 ? pref1.percentage.toFixed(1)+'%' : 'tidak ada'}, <b>${escapeHtml(name2)}</b> ${pref2 ? pref2.percentage.toFixed(1)+'%' : 'tidak ada'}.</p>`;
@@ -613,7 +685,6 @@ function generateDynamicSummaryHTML() {
     if (winner) {
         html += `<li>Produk dengan preferensi tertinggi adalah <b>${escapeHtml(winner.name)}</b> (${winner.percentage.toFixed(1)}%). Jadikan sebagai acuan atau alternatif target.</li>`;
     }
-    // Tambahan: jika ada perlakuan yang lebih rendah dari baseline pada atribut signifikan
     if (targetEval.total > 0 && targetEval.details) {
         const lowAttrs = targetEval.details.filter(d => !d.pass).map(d => d.attr);
         if (lowAttrs.length > 0) {
@@ -1430,7 +1501,7 @@ function runCore(isGold) {
     descHTML += '</table>';
     addOutputSection('📊 Descriptive Statistics', descHTML, isGold);
     let anovaHTML = '<table class="output-table"><tr><th></th><th></th><th>SS</th><th>df</th><th>MS</th><th>F</th><th>Sig.</th><th>Kesimpulan</th></tr>';
-    pk.forEach((p, pi) => { const matrix = []; for (let s = 1; s <= k; s++) matrix.push(getSampleData(s).map(x => x[p])); const allVals = matrix.flat().filter(v => v>0); const grandMean = mean(allVals); const sampleMeans = matrix.map(d => mean(d.filter(v => v>0))); let ssTotal = allVals.reduce((a, v) => a + Math.pow(v-grandMean, 2), 0); let ssSample = 0; for (let s = 0; s < k; s++) { const ns = matrix[s].filter(v => v>0).length; ssSample += ns * Math.pow(sampleMeans[s]-grandMean, 2); } let ssError, msError, F, fCrit, dfError, sig; if (isGold && !useFriedmanFallback) { const dfPanelis = n-1; dfError = (k-1)*(n-1); let panelisMeans = []; for (let ri = 0; ri < n; ri++) { const row = []; for (let s = 0; s < k; s++) { const v = matrix[s][ri]; if (v > 0) row.push(v); } panelisMeans.push(row.length > 0 ? mean(row) : 0); } let ssPanelis = 0; for (let ri = 0; ri < n; ri++) ssPanelis += k * Math.pow(panelisMeans[ri]-grandMean, 2); ssError = Math.max(0, ssTotal-ssSample-ssPanelis); const msSample = ssSample/dfBetween; msError = ssError/dfError; F = msError > 0 ? msSample/msError : 0; fCrit = getFCritical(dfBetween, dfError, 0.05); sig = F > fCrit; anovaResults[sl[pi]] = { ssSample, ssError, ssTotal, msSample, msError, F, sig, sampleMeans, dfBetween, dfError, n }; const duncanResult = duncanMRT(sampleMeans, msError, anovaResults[sl[pi]].n, dfError); anovaResults[sl[pi]].duncanGroups = duncanResult; const es = calculateEffectSize(ssSample, ssTotal, dfBetween, msError); anovaHTML += `<tr><td style="text-align:left;" rowspan="4"><b>${escapeHtml(sl[pi])}</b></td><td>Sampel</td><td>${ssSample.toFixed(3)}</td><td>${dfBetween}</td><td>${msSample.toFixed(3)}</td><td><b>${F.toFixed(3)}</b></td><td class="${sig?'sig-yes':'sig-no'}">${sig?'<0.05':'>0.05'}</td><td rowspan="4" class="${sig?'sig-yes':'sig-no'}">${sig?'Berbeda signifikan':'Tidak berbeda signifikan'}</td></tr><tr><td>Panelis</td><td>${ssPanelis.toFixed(3)}</td><td>${dfPanelis}</td><td>${(ssPanelis/dfPanelis).toFixed(3)}</td><td></td><td></td></tr><tr><td>Error</td><td>${ssError.toFixed(3)}</td><td>${dfError}</td><td>${msError.toFixed(3)}</td><td></td><td></td></tr><tr><td>Total</td><td>${ssTotal.toFixed(3)}</td><td>${dfTotal}</td><td></td><td></td><td></td></tr>`; anovaHTML += `<tr><td colspan="8" style="font-size:9px;background:#f9f9f9;text-align:left;"><b>Effect Size:</b> η²=${es.etaSquared} (${es.interpretation}), ω²=${es.omegaSquared}</td></tr>`; } else { dfError = n*k-k; ssError = Math.max(0, ssTotal-ssSample); const msSample = ssSample/dfBetween; msError = ssError/dfError; F = msError > 0 ? msSample/msError : 0; fCrit = getFCritical(dfBetween, dfError, 0.05); sig = F > fCrit; anovaResults[sl[pi]] = { ssSample, ssError, ssTotal, msSample, msError, F, sig, sampleMeans, dfBetween, dfError, n: Math.round(n*k/k) }; const duncanResult = duncanMRT(sampleMeans, msError, anovaResults[sl[pi]].n, dfError); anovaResults[sl[pi]].duncanGroups = duncanResult; const es = calculateEffectSize(ssSample, ssTotal, dfBetween, msError); anovaHTML += `<tr><td style="text-align:left;" rowspan="3"><b>${escapeHtml(sl[pi])}</b></td><td>Between</td><td>${ssSample.toFixed(3)}</td><td>${dfBetween}</td><td>${msSample.toFixed(3)}</td><td><b>${F.toFixed(3)}</b></td><td class="${sig?'sig-yes':'sig-no'}">${sig?'<0.05':'>0.05'}</td><td rowspan="3" class="${sig?'sig-yes':'sig-no'}">${sig?'Berbeda signifikan':'Tidak berbeda signifikan'}${useFriedmanFallback?' (Friedman acuan)':''}</td></tr><tr><td>Within</td><td>${ssError.toFixed(3)}</td><td>${dfError}</td><td>${msError.toFixed(3)}</td><td></td><td></td></tr><tr><td>Total</td><td>${ssTotal.toFixed(3)}</td><td>${dfTotal}</td><td></td><td></td><td></td></tr>`; anovaHTML += `<tr><td colspan="8" style="font-size:9px;background:#f9f9f9;text-align:left;"><b>Effect Size:</b> η²=${es.etaSquared} (${es.interpretation}), ω²=${es.omegaSquared}</td></tr>`; } });
+    pk.forEach((p, pi) => { const matrix = []; for (let s = 1; s <= k; s++) matrix.push(getSampleData(s).map(x => x[p])); const allVals = matrix.flat().filter(v => v>0); const grandMean = mean(allVals); const sampleMeans = matrix.map(d => mean(d.filter(v => v>0))); let ssTotal = allVals.reduce((a, v) => a + Math.pow(v-grandMean, 2), 0); let ssSample = 0; for (let s = 0; s < k; s++) { const ns = matrix[s].filter(v => v>0).length; ssSample += ns * Math.pow(sampleMeans[s]-grandMean, 2); } let ssError, msError, F, fCrit, dfError, sig, pValue; if (isGold && !useFriedmanFallback) { const dfPanelis = n-1; dfError = (k-1)*(n-1); let panelisMeans = []; for (let ri = 0; ri < n; ri++) { const row = []; for (let s = 0; s < k; s++) { const v = matrix[s][ri]; if (v > 0) row.push(v); } panelisMeans.push(row.length > 0 ? mean(row) : 0); } let ssPanelis = 0; for (let ri = 0; ri < n; ri++) ssPanelis += k * Math.pow(panelisMeans[ri]-grandMean, 2); ssError = Math.max(0, ssTotal-ssSample-ssPanelis); const msSample = ssSample/dfBetween; msError = ssError/dfError; F = msError > 0 ? msSample/msError : 0; fCrit = getFCritical(dfBetween, dfError, 0.05); sig = F > fCrit; pValue = fPValue(F, dfBetween, dfError); anovaResults[sl[pi]] = { ssSample, ssError, ssTotal, msSample, msError, F, sig, pValue, sampleMeans, dfBetween, dfError, n }; const duncanResult = duncanMRT(sampleMeans, msError, anovaResults[sl[pi]].n, dfError); anovaResults[sl[pi]].duncanGroups = duncanResult; const es = calculateEffectSize(ssSample, ssTotal, dfBetween, msError); anovaHTML += `<tr><td style="text-align:left;" rowspan="4"><b>${escapeHtml(sl[pi])}</b></td><td>Sampel</td><td>${ssSample.toFixed(3)}</td><td>${dfBetween}</td><td>${msSample.toFixed(3)}</td><td><b>${F.toFixed(3)}</b></td><td class="${sig?'sig-yes':'sig-no'}">${sig?'<0.05':'>0.05'}</td><td rowspan="4" class="${sig?'sig-yes':'sig-no'}">${sig?'Berbeda signifikan':'Tidak berbeda signifikan'}</td></tr><tr><td>Panelis</td><td>${ssPanelis.toFixed(3)}</td><td>${dfPanelis}</td><td>${(ssPanelis/dfPanelis).toFixed(3)}</td><td></td><td></td></tr><tr><td>Error</td><td>${ssError.toFixed(3)}</td><td>${dfError}</td><td>${msError.toFixed(3)}</td><td></td><td></td></tr><tr><td>Total</td><td>${ssTotal.toFixed(3)}</td><td>${dfTotal}</td><td></td><td></td><td></td></tr>`; anovaHTML += `<tr><td colspan="8" style="font-size:9px;background:#f9f9f9;text-align:left;"><b>Effect Size:</b> η²=${es.etaSquared} (${es.interpretation}), ω²=${es.omegaSquared}</td></tr>`; } else { dfError = n*k-k; ssError = Math.max(0, ssTotal-ssSample); const msSample = ssSample/dfBetween; msError = ssError/dfError; F = msError > 0 ? msSample/msError : 0; fCrit = getFCritical(dfBetween, dfError, 0.05); sig = F > fCrit; pValue = fPValue(F, dfBetween, dfError); anovaResults[sl[pi]] = { ssSample, ssError, ssTotal, msSample, msError, F, sig, pValue, sampleMeans, dfBetween, dfError, n: Math.round(n*k/k) }; const duncanResult = duncanMRT(sampleMeans, msError, anovaResults[sl[pi]].n, dfError); anovaResults[sl[pi]].duncanGroups = duncanResult; const es = calculateEffectSize(ssSample, ssTotal, dfBetween, msError); anovaHTML += `<tr><td style="text-align:left;" rowspan="3"><b>${escapeHtml(sl[pi])}</b></td><td>Between</td><td>${ssSample.toFixed(3)}</td><td>${dfBetween}</td><td>${msSample.toFixed(3)}</td><td><b>${F.toFixed(3)}</b></td><td class="${sig?'sig-yes':'sig-no'}">${sig?'<0.05':'>0.05'}</td><td rowspan="3" class="${sig?'sig-yes':'sig-no'}">${sig?'Berbeda signifikan':'Tidak berbeda signifikan'}${useFriedmanFallback?' (Friedman acuan)':''}</td></tr><tr><td>Within</td><td>${ssError.toFixed(3)}</td><td>${dfError}</td><td>${msError.toFixed(3)}</td><td></td><td></td></tr><tr><td>Total</td><td>${ssTotal.toFixed(3)}</td><td>${dfTotal}</td><td></td><td></td><td></td></tr>`; anovaHTML += `<tr><td colspan="8" style="font-size:9px;background:#f9f9f9;text-align:left;"><b>Effect Size:</b> η²=${es.etaSquared} (${es.interpretation}), ω²=${es.omegaSquared}</td></tr>`; } });
     anovaHTML += '</table>';
     addOutputSection('📊 ' + modelName, anovaHTML, isGold);
     let friedHTML = '<table class="output-table"><tr><th>Atribut</th><th>n valid</th><th>Chi-Square</th><th>df</th><th>Sig.</th><th>Kesimpulan</th></tr>';
@@ -1503,7 +1574,7 @@ function runCore(isGold) {
             for (let s = 1; s <= k; s++) { const data = getSampleData(s).map(x => x[p]).filter(v => v>0); const count = data.filter(v => v >= scale.threshold).length; const pct = (count/data.length*100); nPercents.push(`${escapeHtml(sampleNames[s-1])}: ${pct.toFixed(1)}%`); }
             concHTML += `<div class="insight"><b>🔬 ${escapeHtml(attr)}</b><br>`;
             concHTML += `<b>📊 Deskriptif:</b> ${escapeHtml(maxSample)} memiliki mean tertinggi (<b>${maxMean.toFixed(2)}</b>), sedangkan ${escapeHtml(minSample)} terendah (<b>${minMean.toFixed(2)}</b>). Rentang nilai cukup lebar, mengindikasikan adanya perbedaan.<br>`;
-            concHTML += `<b>📈 ANOVA:</b> F(${ar.dfBetween}, ${ar.dfError}) = ${ar.F.toFixed(2)}, p < 0.05. Effect size η² = ${es.etaSquared} (${es.interpretation}), artinya ${(es.etaSquared*100).toFixed(1)}% variasi pada atribut ini dapat dijelaskan oleh perbedaan sampel.<br>`;
+            concHTML += `<b>📈 ANOVA:</b> F(${ar.dfBetween}, ${ar.dfError}) = ${ar.F.toFixed(2)}, p = ${ar.pValue ? ar.pValue.toFixed(4) : 'N/A'}. Effect size η² = ${es.etaSquared} (${es.interpretation}), artinya ${(es.etaSquared*100).toFixed(1)}% variasi pada atribut ini dapat dijelaskan oleh perbedaan sampel.<br>`;
             if (fr) { concHTML += `<b>📊 Friedman:</b> χ²(${fr.df}) = ${fr.chi2.toFixed(2)}, ${fr.isSig ? 'p < 0.05 (signifikan)' : 'p > 0.05 (tidak signifikan)'}. `; concHTML += fr.isSig ? `Hasil ini konsisten dengan ANOVA, memperkuat bukti perbedaan.` : `Meskipun ANOVA signifikan, Friedman tidak mendeteksi perbedaan (perlu kehati-hatian).`; concHTML += `<br>`; }
             concHTML += `<b>🔡 Duncan (abc):</b> Pengelompokan: `; Object.entries(groupMap).forEach(([group, samples]) => { concHTML += `<b>${group}</b> = {${samples.join(', ')}} `; }); concHTML += `. Sampel yang tidak memiliki huruf yang sama berarti berbeda signifikan.<br>`;
             concHTML += `<b>📊 N% (Skor ≥ ${scale.threshold}):</b> ${nPercents.join(', ')}. Sampel dengan persentase tinggi menunjukkan intensitas ${scale.label} yang lebih kuat.<br>`;
@@ -1521,7 +1592,7 @@ function runCore(isGold) {
             const fr = friedResults[attr];
             const es = calculateEffectSize(ar.ssSample, ar.ssTotal, ar.dfBetween, ar.msError);
             concHTML += `<div class="warning-box"><b>${escapeHtml(attr)}</b><br>`;
-            concHTML += `<b>📈 ANOVA:</b> F(${ar.dfBetween}, ${ar.dfError}) = ${ar.F.toFixed(2)}, p > 0.05 (tidak signifikan). Effect size η² = ${es.etaSquared} (${es.interpretation}).<br>`;
+            concHTML += `<b>📈 ANOVA:</b> F(${ar.dfBetween}, ${ar.dfError}) = ${ar.F.toFixed(2)}, p = ${ar.pValue ? ar.pValue.toFixed(4) : 'N/A'}. Effect size η² = ${es.etaSquared} (${es.interpretation}).<br>`;
             if (fr) { concHTML += `<b>📊 Friedman:</b> χ²(${fr.df}) = ${fr.chi2.toFixed(2)}, ${fr.isSig ? 'p < 0.05 (signifikan)' : 'p > 0.05 (tidak signifikan)'}. `; concHTML += fr.isSig ? `Perhatian: Friedman mendeteksi perbedaan, tetapi ANOVA tidak. Disarankan menggunakan hasil Friedman.` : `Hasil ini konsisten dengan ANOVA, tidak ada perbedaan signifikan.`; concHTML += `<br>`; }
             concHTML += `<b>📊 N%:</b> Meskipun secara numerik mungkin ada variasi, secara statistik variasi tersebut bisa dianggap sebagai fluktuasi acak.<br>`;
             concHTML += `</div><br>`;
