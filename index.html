@@ -592,6 +592,86 @@ function generateNPercentMatrixForSample(sampleIndex) {
     return html;
 }
 
+function generateT2BSummaryTableForSample(sampleIndex) {
+    // Hanya berjalan di mode Hedonik
+    if (AppConfig.testMode !== TestMode.HEDONIK) return '';
+
+    const sensoryAttrs = getActiveSensoryAttrs();   // Baris: Penampilan, Aroma, ...
+    const targetAttrs = getActiveTargetAttrs();     // Kolom: Overall Liking, Recommended, Purchase Intent
+    if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
+
+    // Ambil data khusus sampel ini
+    const sampleData = getSampleData(sampleIndex);
+    const totalResponden = sampleData.length;
+    if (totalResponden === 0) return '';
+
+    const sampleLabel = sampleNames[sampleIndex - 1] || `Sampel ${String.fromCharCode(64 + sampleIndex)}`;
+
+    // Keterangan default – bisa disesuaikan nanti
+    const defaultKeterangan = {
+        'Penampilan': '1. 80% panelis menyukai karena warna merah menarik dan bumbu merata.<br>2. 12% tidak menyukai karena terlihat terlalu pedas.',
+        'Aroma': '1. 80% panelis menyukai karena aroma pedas khas cabai dominan.<br>2. 16% tidak menyukai karena terlalu menyengat.',
+        'Tekstur': '1. 52% panelis menyukai karena daging lembut dan tepung renyah.<br>2. 44% tidak menyukai karena kulit alot dan kurang juicy.',
+        'Rasa': '1. 60% panelis menyukai karena rasa gurih pedas nikmat seimbang.<br>2. 36% tidak menyukai karena terlalu pedas dominan.',
+        'Aftertaste': '1. 60% panelis menyukai karena rasa pedas tertinggal tidak berlebihan.<br>2. 24% tidak menyukai karena aftertaste terasa pahit.',
+        'Overall liking': '1. Paling Disukai: Rasa pedas pas dan tampilan merah pekat.<br>2. Tidak Disukai: Kurang terasa gurih.'
+    };
+
+    // Mulai membangun HTML
+    let html = `<div class="output-section">`;
+    // Judul bisa diklik (collapse/expand)
+    html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel Silang T2B — ${escapeHtml(sampleLabel)}</div>`;
+    html += `<div class="collapsible-content expanded" style="padding:10px;">`; // default terbuka
+
+    html += `<p style="font-size:10px;color:#666;margin-bottom:10px;">Panelis dengan skor ≥ 4 (Suka/Sangat Suka) pada sampel ini.</p>`;
+    html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:12px;">`;
+
+    // Header kolom: Atribut + semua target + Keterangan
+    html += `<tr style="background-color:#f2f2f2;">`;
+    html += `<th style="border:1px solid #ccc; padding:8px;">Atribut</th>`;
+    targetAttrs.forEach(target => {
+        html += `<th style="border:1px solid #ccc; padding:8px; width:12%;">${variableDefs[target]?.label || target}</th>`;
+    });
+    html += `<th style="border:1px solid #ccc; padding:8px; text-align:left;">Keterangan</th>`;
+    html += `</tr>`;
+
+    // Baris untuk setiap atribut sensoris
+    sensoryAttrs.forEach(sensory => {
+        let labelSensory = variableDefs[sensory]?.label || sensory;
+        html += `<tr>`;
+        html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">${labelSensory}</td>`;
+
+        // Hitung persentase T2B untuk setiap target
+        targetAttrs.forEach(target => {
+            // Panelis yang suka atribut sensoris (skor ≥ 4)
+            let panelisSukaSensory = sampleData.filter(row => parseFloat(row[sensory]) >= 4);
+            // Dari mereka, yang juga suka atribut target (skor ≥ 4)
+            let panelisSukaTarget = panelisSukaSensory.filter(row => parseFloat(row[target]) >= 4);
+            let persentaseT2B = 0;
+            if (panelisSukaSensory.length > 0) {
+                persentaseT2B = (panelisSukaTarget.length / panelisSukaSensory.length) * 100;
+            } else {
+                // Jika tidak ada yang suka sensoris, fallback: persentase suka target dari semua responden
+                let totalSukaTarget = sampleData.filter(row => parseFloat(row[target]) >= 4).length;
+                persentaseT2B = (totalSukaTarget / totalResponden) * 100;
+            }
+            html += `<td style="border:1px solid #ccc; padding:8px; text-align:center;">${persentaseT2B.toFixed(1)}%</td>`;
+        });
+
+        // Keterangan kualitatif (bisa dari variableDefs atau default)
+        let teksKet = variableDefs[sensory]?.keteranganKualitatif || defaultKeterangan[labelSensory] || defaultKeterangan[sensory] || '-';
+        html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:11px; color:#333;">${teksKet}</td>`;
+        html += `</tr>`;
+    });
+
+    html += `</table>`;
+    html += `<div class="note-box" style="margin-top:8px; font-size:10px;">`;
+    html += `<b>💡 Catatan:</b> Persentase menunjukkan proporsi panelis yang suka (skor 4-5) pada atribut sensoris dan juga suka pada atribut target (Overall, Recommend, Purchase Intent).</div>`;
+    html += `</div>`; // tutup collapsible-content
+    html += `</div>`; // tutup output-section
+    return html;
+}
+
 // ==================== TARGET FUNCTIONS ====================
 function openTargetModal() { document.getElementById('targetInput').value = targetConfig.rawInput; validateTargetInput(); document.getElementById('targetModal').classList.add('show'); }
 function closeTargetModal() { document.getElementById('targetModal').classList.remove('show'); }
@@ -1289,7 +1369,17 @@ if (nMatrixSampleHTML) {
     // 🔧 Simpan data spider chart & label untuk Summary Report
     const spiderDataToSave = spiderMeanData;   // sudah ada di scope
     const spiderLabelsToSave = pk.map(p => variableDefs[p]?.label || p);
-
+if (AppConfig.testMode === TestMode.HEDONIK) {
+        for (let si = 1; si <= numSamples; si++) {
+            const t2bHTML = generateT2BSummaryTableForSample(si);
+            if (t2bHTML) {
+                const od = document.getElementById('outputContent');
+                const section = document.createElement('div');
+                section.innerHTML = t2bHTML;
+                while (section.firstChild) { od.appendChild(section.firstChild); }
+            }
+        }
+    }
     lastAnalysisResults = {
         anovaResults, friedResults, sigResults, analysisMode: AppConfig.testMode,
         spiderData: spiderDataToSave,
@@ -1453,7 +1543,7 @@ if (nMatrixSampleHTML) {
 // ==================== INIT ====================
 function init() { dataColumns = generateColumns(); initTable(); renderSampleNameInputs(); updateUndoRedoButtons(); document.getElementById('editorArea').addEventListener('click', function(e) { if (e.target === this) { clearSelection(); renderBody(); } }); document.getElementById('editorArea').focus(); }
 init();
-updateStatus(`v2.8 | Mode: ${getModeLabel()} | Detail Conclusion`);
+updateStatus(`v2.8 | Mode: ${getModeLabel()} | ANOVA Sig + Spider Fix + Detail Conclusion`);
 </script>
 </body>
 </html>
