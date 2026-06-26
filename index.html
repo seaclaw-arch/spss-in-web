@@ -483,8 +483,28 @@ function generateNPercentMatrix() {
     html += '<table class="output-table"><tr><th style="text-align:left;min-width:120px;">Atribut</th>';
     colTargets.forEach(t => html += `<th class="n-matrix-target">${variableDefs[t]?.label || t}</th>`);
     html += '<th>Rata-rata</th><th>Selisih</th><th>Kategori</th></tr>';
-    rowAttrs.forEach(attr => { const rowData = attrNPercent[attr]; if (!rowData) return; const isOverallRow = attr === 'overall'; html += `<tr${isOverallRow ? ' style="background:#e3f2fd;font-weight:700;"' : ''}>`; html += `<td style="text-align:left;font-weight:${isOverallRow?'700':'600'};">${variableDefs[attr]?.label || attr}${isOverallRow?' 🎯':''}</td>`; let targetSum = 0, targetCount = 0; colTargets.forEach(target => { const targetData = attrNPercent[target]; if (!targetData) return; const diff = rowData.percent - targetData.percent; const diffClass = Math.abs(diff) < 5 ? 'sig-yes' : (diff > 0 ? 'sig-no' : 'sig-very'); const cellClass = rowData.percent >= 80 ? 'n-matrix-high' : (rowData.percent >= 60 ? 'n-matrix-mid' : 'n-matrix-low'); html += `<td class="${cellClass}"><b>${rowData.percent.toFixed(1)}%</b><br><small>vs ${variableDefs[target]?.label || target}: <span class="${diffClass}">${diff > 0 ? '+' : ''}${diff.toFixed(1)}%</span></small></td>`; targetSum += targetData.percent; targetCount++; }); const avgTarget = targetCount > 0 ? targetSum / targetCount : 0; const avgDiff = rowData.percent - avgTarget; const avgDiffClass = Math.abs(avgDiff) < 5 ? 'sig-yes' : (avgDiff > 0 ? 'sig-no' : 'sig-very'); const category = rowData.percent >= 80 ? 'Sangat Tinggi' : (rowData.percent >= 60 ? 'Tinggi' : (rowData.percent >= 40 ? 'Sedang' : 'Rendah')); const categoryClass = rowData.percent >= 80 ? 'sig-yes' : (rowData.percent >= 60 ? 'sig-yes' : (rowData.percent >= 40 ? 'sig-no' : 'normal-no')); html += `<td><b>${avgTarget.toFixed(1)}%</b></td>`; html += `<td class="${avgDiffClass}">${isOverallRow ? 'Baseline' : (avgDiff > 0 ? '+' : '') + avgDiff.toFixed(1) + '%'}</td>`; html += `<td class="${categoryClass}">${category}</td></tr>`; });
-    html += '</table>';
+    rowAttrs.forEach(attr => { const rowData = attrNPercent[attr]; if (!rowData) return; const isOverallRow = attr === 'overall'; html += `<tr${isOverallRow ? ' style="background:#e3f2fd;font-weight:700;"' : ''}>`; html += `<td style="text-align:left;font-weight:${isOverallRow?'700':'600'};">${variableDefs[attr]?.label || attr}${isOverallRow?' 🎯':''}</td>`; let targetSum = 0, targetCount = 0; 
+                             // Ambil N% Overall Liking sebagai baseline (cukup satu kali di luar loop baris)
+const overallPct = attrNPercent['overall']?.percent || 0;
+
+colTargets.forEach(target => {
+    const targetData = attrNPercent[target];
+    if (!targetData) return;
+    const diff = rowData.percent - targetData.percent;
+    const diffClass = Math.abs(diff) < 5 ? 'sig-yes' : (diff > 0 ? 'sig-no' : 'sig-very');
+    const cellClass = rowData.percent >= 80 ? 'n-matrix-high' : (rowData.percent >= 60 ? 'n-matrix-mid' : 'n-matrix-low');
+    html += `<td class="${cellClass}"><b>${rowData.percent.toFixed(1)}%</b><br><small>vs ${variableDefs[target]?.label || target}: <span class="${diffClass}">${diff > 0 ? '+' : ''}${diff.toFixed(1)}%</span></small></td>`;
+});
+// Kolom "Rata‑rata" = nilai N% atribut baris (sama untuk ketiga target)
+const rowAvg = rowData.percent;
+// Selisih terhadap Overall Liking
+const selisih = rowAvg - overallPct;
+const selisihClass = Math.abs(selisih) < 5 ? 'sig-yes' : (selisih > 0 ? 'sig-no' : 'sig-very');
+const category = rowData.percent >= 80 ? 'Sangat Tinggi' : (rowData.percent >= 60 ? 'Tinggi' : (rowData.percent >= 40 ? 'Sedang' : 'Rendah'));
+const categoryClass = rowData.percent >= 80 ? 'sig-yes' : (rowData.percent >= 60 ? 'sig-yes' : (rowData.percent >= 40 ? 'sig-no' : 'normal-no'));
+html += `<td><b>${rowAvg.toFixed(1)}%</b></td>`;
+html += `<td class="${selisihClass}">${isOverallRow ? 'Baseline' : (selisih > 0 ? '+' : '') + selisih.toFixed(1) + '%'}</td>`;
+html += `<td class="${categoryClass}">${category}</td></tr>`;
     const sensoryAttrs = getActiveSensoryAttrs();
     if (sensoryAttrs.length > 0 && attrNPercent['overall']) { const sensoryAvg = sensoryAttrs.reduce((sum, attr) => sum + (attrNPercent[attr]?.percent || 0), 0) / sensoryAttrs.length; const overallPct = attrNPercent['overall'].percent; const sortedSensory = sensoryAttrs.map(attr => ({attr, label: variableDefs[attr]?.label || attr, percent: attrNPercent[attr]?.percent || 0})).sort((a,b) => b.percent - a.percent); html += '<div class="insight" style="margin-top:10px;">'; html += `<b>📋 Ringkasan:</b> Terkuat: ${sortedSensory[0].label} (${sortedSensory[0].percent.toFixed(1)}%) | Terlemah: ${sortedSensory[sortedSensory.length-1].label} (${sortedSensory[sortedSensory.length-1].percent.toFixed(1)}%) | Avg Sensoris: ${sensoryAvg.toFixed(1)}% | Overall: ${overallPct.toFixed(1)}%`; html += '</div>'; }
     html += '</div></div>';
