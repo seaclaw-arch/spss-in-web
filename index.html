@@ -519,7 +519,7 @@ function fPValue(F, df1, df2) {
     if (!isFinite(F)) return 0;
     const x = df2 / (df2 + df1 * F);
     const cdf = ibeta(df2 / 2, df1 / 2, x);
-    return Math.max(0, Math.min(1, 1 - cdf));
+    return Math.max(0, Math.min(1, cdf));
 }
 
 // ==================== SUMMARY ====================
