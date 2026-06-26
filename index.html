@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSPSS v2.6 — Duncan SPSS-Style + Dynamic Target</title>
-    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js">
-    </script>
+    <title>WebSPSS v2.7 — Duncan SPSS-Style + Dynamic Target + Crosstab</title>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
         :root {
             --spss-blue: #1a3a5c;
@@ -20,6 +19,19 @@
             --success: #0d904f;
             --excel-green: #00695c;
             --purple-btn: #6f42c1;
+            /* Sample Group Colors */
+            --sample-a-bg: #e3f2fd;
+            --sample-a-header: #90caf9;
+            --sample-a-border: #1a73e8;
+            --sample-b-bg: #e8f5e9;
+            --sample-b-header: #a5d6a7;
+            --sample-b-border: #2e7d32;
+            --sample-c-bg: #fff3e0;
+            --sample-c-header: #ffcc80;
+            --sample-c-border: #e65100;
+            --sample-d-bg: #fce4ec;
+            --sample-d-header: #f48fb1;
+            --sample-d-border: #c2185b;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #e8ecf1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 12px; }
@@ -95,6 +107,15 @@
         .editor-area .row-num { background: #f0f0f0; text-align: center; font-size: 9px; color: #888; min-width: 30px; width: 30px; cursor: pointer; }
         .editor-area .row-num.selected-row { background: #ffcccc !important; }
         .editor-area td.selected-cell { background: #b3d9ff !important; }
+        /* Sample Group Colors */
+        .editor-area td.sample-a { background: var(--sample-a-bg); }
+        .editor-area td.sample-b { background: var(--sample-b-bg); }
+        .editor-area td.sample-c { background: var(--sample-c-bg); }
+        .editor-area td.sample-d { background: var(--sample-d-bg); }
+        .editor-area th.sample-a-header { background: var(--sample-a-header); color: #0d47a1; }
+        .editor-area th.sample-b-header { background: var(--sample-b-header); color: #1b5e20; }
+        .editor-area th.sample-c-header { background: var(--sample-c-header); color: #e65100; }
+        .editor-area th.sample-d-header { background: var(--sample-d-header); color: #880e4f; }
         .output-panel { flex: 1.6; display: flex; flex-direction: column; background: #fffef8; min-width: 550px; overflow: hidden; }
         .output-header { background: #2c3e50; color: white; padding: 7px 12px; font-size: 11px; display: flex; align-items: center; gap: 6px; min-height: 32px; }
         .output-content { flex: 1; overflow: auto; padding: 10px; font-size: 11px; line-height: 1.5; }
@@ -164,6 +185,27 @@
         .fail-box { background: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 15px 0; border-radius: 4px; }
         .target-display-box { background: #e3f2fd; border: 2px solid #1a73e8; padding: 15px; margin: 15px 0; border-radius: 6px; text-align: center; }
         .target-display-box strong { color: #1a3a5c; font-size: 13px; }
+        /* Crosstab & Somers D styles */
+        .crosstab-container { margin: 10px 0; overflow-x: auto; }
+        .crosstab-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+        .crosstab-table th { background: #546e7a; color: white; padding: 4px 6px; text-align: center; border: 1px solid #37474f; }
+        .crosstab-table td { padding: 3px 5px; text-align: center; border: 1px solid #ddd; background: #fafafa; }
+        .crosstab-table tr:nth-child(even) td { background: #f0f0f0; }
+        .crosstab-table .row-header { background: #e3f2fd; font-weight: 600; text-align: left; min-width: 80px; }
+        .crosstab-table .total-row { background: #fff3e0 !important; font-weight: 600; }
+        .crosstab-table .total-col { background: #fff3e0 !important; font-weight: 600; }
+        .somers-positive { color: #0d904f; font-weight: 600; }
+        .somers-negative { color: #d93025; font-weight: 600; }
+        .somers-weak { color: #856404; }
+        .corr-strong { background: #d4edda !important; color: #155724; font-weight: 600; }
+        .corr-moderate { background: #fff3cd !important; color: #856404; }
+        .corr-weak { background: #f8f9fa !important; color: #666; }
+        .collapsible { cursor: pointer; user-select: none; }
+        .collapsible:hover { opacity: 0.8; }
+        .collapsible::before { content: '▼ '; font-size: 9px; }
+        .collapsible.collapsed::before { content: '▶ '; font-size: 9px; }
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .collapsible-content.expanded { max-height: none; }
         @media print {
             .data-editor,.toolbar,.title-bar,.footer-bar,.sample-name-bar,.modal-overlay{display:none!important}
             .output-panel{flex:1}.output-content{overflow:visible}body{background:white}
@@ -173,9 +215,9 @@
 <body>
 <div class="title-bar">
     <div style="display:flex;align-items:center;">
-        <h1>📊 WebSPSS v2.6</h1>
+        <h1>📊 WebSPSS v2.7</h1>
         <span id="modeIndicator" class="mode-indicator hedonik">HEDONIK</span>
-        <span class="subtitle" style="margin-left:10px;font-size:10px;color:#a0c4ff;">Duncan SPSS-Style + Dynamic Target</span>
+        <span class="subtitle" style="margin-left:10px;font-size:10px;color:#a0c4ff;">Duncan SPSS-Style + Crosstab + Somers' D</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
         <span id="panelCount" style="font-size:10px;">Panelis: 0</span>
@@ -237,7 +279,7 @@
             <button onclick="addVariable()">➕ Tambah</button>
         </div>
         <div class="btn-group">
-            <button class="btn-danger" onclick="resetVariables()">🔄 Reset Default (7)</button>
+            <button class="btn-danger" onclick="resetVariables()">🔄 Reset Default</button>
             <button class="btn-secondary" onclick="closeVariableManager()">Batal</button>
             <button class="btn-primary" onclick="applyVariables()">✅ Terapkan</button>
         </div>
@@ -284,8 +326,8 @@
     <div class="output-content" id="outputContent">
         <div style="text-align:center;color:#aaa;padding:30px;">
             <p style="font-size:32px;">📊</p>
-            <p><b>WebSPSS v2.6</b></p>
-            <p style="font-size:10px;">Duncan SPSS-Style + Dynamic Target Summary</p>
+            <p><b>WebSPSS v2.7</b></p>
+            <p style="font-size:10px;">Duncan SPSS-Style + Crosstab + Somers' D</p>
             <p style="font-size:10px;margin-top:8px;">Klik <b>📥 2/3/4 Sampel</b> untuk memuat data, lalu <b>🚀 Analisis</b></p>
             <p style="font-size:10px;">Klik <b>🎯 Set Target</b> untuk mengatur target perbandingan</p>
         </div>
@@ -294,7 +336,7 @@
 </div>
 <div class="footer-bar">
     <span id="statusLeft">Ready</span>
-    <span id="statusBar">v2.6 | Duncan SPSS-Style | Dynamic Target</span>
+    <span id="statusBar">v2.7 | Duncan SPSS-Style | Crosstab + Somers' D</span>
 </div>
 
 <script>
@@ -331,6 +373,8 @@ function getActiveScale() { return AppConfig.scales[AppConfig.testMode]; }
 let numSamples=2,sampleNames=['Sampel A','Sampel B'],dataColumns=[],dataRows=[],confidenceLevel=95,likingThreshold=4;
 let selStart=null,selEnd=null,isSelecting=false,lastClickedCell=null,undoStack=[],redoStack=[];
 const MAX_HISTORY=50;
+
+// Variable definitions - includes recommended and purchase_intent for hedonic
 let variableDefs={
     penampilan:{label:'Penampilan',hedonik:'HEDONIK PENAMPILAN'},
     warna:{label:'Warna',hedonik:'HEDONIK WARNA'},
@@ -338,10 +382,18 @@ let variableDefs={
     tekstur:{label:'Tekstur',hedonik:'HEDONIK TEKSTUR'},
     rasa:{label:'Rasa',hedonik:'HEDONIK RASA'},
     aftertaste:{label:'Aftertaste',hedonik:'HEDONIK AFTER TASTE'},
-    overall:{label:'Overall Liking',hedonik:'OVERALL LIKING'}
+    overall:{label:'Overall Liking',hedonik:'OVERALL LIKING'},
+    recommended:{label:'Recommended',hedonik:'RECOMMENDED'},
+    purchase_intent:{label:'Purchase Intent',hedonik:'PURCHASE INTENT'}
 };
-let activeVariables=['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall'];
+
+// Active variables differ between modes
+let activeVariables=['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall','recommended','purchase_intent'];
 const defaultVariableDefs=JSON.parse(JSON.stringify(variableDefs));
+
+// Hedonic-only variables (not shown in descriptive mode)
+const HEDONIC_ONLY_VARS = ['recommended', 'purchase_intent'];
+
 let lastAnalysisResults=null;
 let pendingVarDefs=null,pendingActiveVars=null;
 let saveTimeout=null;
@@ -359,6 +411,255 @@ function escapeHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function escapeAttr(s) { return escapeHtml(String(s)); }
+
+// ==================== SOMERS' D CALCULATION ====================
+function somersD(x, y) {
+    const n = Math.min(x.length, y.length);
+    if (n < 3) return { d: 0, concordant: 0, discordant: 0, tiedY: 0, n: n, interpretation: 'N/A' };
+    
+    // Filter out invalid pairs
+    const pairs = [];
+    for (let i = 0; i < n; i++) {
+        if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
+            pairs.push({ x: x[i], y: y[i] });
+        }
+    }
+    const m = pairs.length;
+    if (m < 3) return { d: 0, concordant: 0, discordant: 0, tiedY: 0, n: m, interpretation: 'Data tidak cukup' };
+    
+    let concordant = 0, discordant = 0, tiedX = 0, tiedY = 0, tiedXY = 0;
+    
+    for (let i = 0; i < m; i++) {
+        for (let j = i + 1; j < m; j++) {
+            const xDiff = pairs[i].x - pairs[j].x;
+            const yDiff = pairs[i].y - pairs[j].y;
+            
+            if (xDiff > 0 && yDiff > 0) concordant++;
+            else if (xDiff < 0 && yDiff < 0) concordant++;
+            else if (xDiff > 0 && yDiff < 0) discordant++;
+            else if (xDiff < 0 && yDiff > 0) discordant++;
+            else if (xDiff === 0 && yDiff === 0) tiedXY++;
+            else if (xDiff === 0 && yDiff !== 0) tiedX++;
+            else if (xDiff !== 0 && yDiff === 0) tiedY++;
+        }
+    }
+    
+    // Somers' D (Y|X) = (C - D) / (C + D + T_Y)
+    const denominator = concordant + discordant + tiedY;
+    const d = denominator > 0 ? (concordant - discordant) / denominator : 0;
+    
+    let interpretation = '';
+    const absD = Math.abs(d);
+    if (absD >= 0.6) interpretation = d > 0 ? 'Kuat Positif' : 'Kuat Negatif';
+    else if (absD >= 0.4) interpretation = d > 0 ? 'Sedang Positif' : 'Sedang Negatif';
+    else if (absD >= 0.2) interpretation = d > 0 ? 'Lemah Positif' : 'Lemah Negatif';
+    else interpretation = 'Sangat Lemah / Tidak Ada Asosiasi';
+    
+    return { 
+        d: parseFloat(d.toFixed(4)), 
+        concordant, 
+        discordant, 
+        tiedY, 
+        tiedX,
+        tiedXY,
+        n: m, 
+        interpretation 
+    };
+}
+
+// ==================== CROSSTAB GENERATION ====================
+function generateCrosstab(x, y, labelX, labelY) {
+    const n = Math.min(x.length, y.length);
+    if (n < 3) return null;
+    
+    // Get unique values (assuming 1-5 scale)
+    const valsX = [1, 2, 3, 4, 5];
+    const valsY = [1, 2, 3, 4, 5];
+    
+    // Create frequency matrix
+    const freq = Array.from({length: valsX.length}, () => Array(valsY.length).fill(0));
+    let validPairs = 0;
+    
+    for (let i = 0; i < n; i++) {
+        const xi = Math.round(x[i]);
+        const yi = Math.round(y[i]);
+        if (xi >= 1 && xi <= 5 && yi >= 1 && yi <= 5) {
+            freq[xi-1][yi-1]++;
+            validPairs++;
+        }
+    }
+    
+    if (validPairs < 3) return null;
+    
+    // Calculate row and column totals
+    const rowTotals = freq.map(row => row.reduce((a,b) => a+b, 0));
+    const colTotals = valsY.map((_, j) => freq.reduce((sum, row) => sum + row[j], 0));
+    
+    let html = `<div class="crosstab-container"><table class="crosstab-table">`;
+    html += `<tr><th rowspan="2" style="background:#37474f;">${escapeHtml(labelX)} \\ ${escapeHtml(labelY)}</th>`;
+    valsY.forEach(v => html += `<th>${v}</th>`);
+    html += `<th class="total-col">Total</th></tr>`;
+    
+    html += `<tr>`;
+    colTotals.forEach(t => html += `<th style="background:#ffcc80;">${(t/validPairs*100).toFixed(1)}%</th>`);
+    html += `<th style="background:#ffcc80;">100%</th></tr>`;
+    
+    valsX.forEach((vx, i) => {
+        html += `<tr><td class="row-header">${vx} (${(rowTotals[i]/validPairs*100).toFixed(1)}%)</td>`;
+        freq[i].forEach((f, j) => {
+            const pct = rowTotals[i] > 0 ? (f/rowTotals[i]*100).toFixed(1) : '0.0';
+            const cellBg = f > 0 ? '#e8f5e9' : '#fafafa';
+            html += `<td style="background:${cellBg}"><b>${f}</b><br><small>${pct}%</small></td>`;
+        });
+        html += `<td class="total-col"><b>${rowTotals[i]}</b></td></tr>`;
+    });
+    
+    html += `<tr class="total-row"><td>Total</td>`;
+    colTotals.forEach(t => html += `<td><b>${t}</b></td>`);
+    html += `<td><b>${validPairs}</b></td></tr>`;
+    html += `</table></div>`;
+    
+    return html;
+}
+
+// ==================== CROSSTAB OUTPUT SECTION ====================
+function generateCrosstabOutput() {
+    if (AppConfig.testMode !== TestMode.HEDONIK) return '';
+    
+    const sensoryAttrs = ['penampilan','warna','aroma','tekstur','rasa','aftertaste'];
+    const targetAttrs = ['overall','recommended','purchase_intent'];
+    
+    // Collect all data across samples
+    const allData = {};
+    [...sensoryAttrs, ...targetAttrs].forEach(key => { allData[key] = []; });
+    
+    for (let s = 1; s <= numSamples; s++) {
+        const sampleData = getSampleData(s);
+        sampleData.forEach(row => {
+            sensoryAttrs.forEach(key => {
+                const val = row[key] || 0;
+                if (val > 0) allData[key].push(val);
+            });
+            targetAttrs.forEach(key => {
+                const val = row[key] || 0;
+                if (val > 0) allData[key].push(val);
+            });
+        });
+    }
+    
+    // Ensure all arrays have same length by padding with zeros
+    const maxLen = Math.max(...Object.values(allData).map(arr => arr.length));
+    Object.keys(allData).forEach(key => {
+        while (allData[key].length < maxLen) allData[key].push(0);
+    });
+    
+    let html = '';
+    
+    // ===== SUMMARY TABLE =====
+    html += `<div class="output-section"><div class="output-section-title">📊 Ringkasan Asosiasi Antar Atribut (Hedonik)</div>`;
+    html += `<div style="padding:10px;">`;
+    html += `<p style="font-size:10px;color:#666;margin-bottom:10px;"><b>Catatan:</b> Analisis ini menggabungkan data dari semua sampel (${numSamples} sampel × ${dataRows.length} panelis = ${maxLen} observasi). Pearson r mengukur korelasi linear, Somers' D mengukur asosiasi ordinal.</p>`;
+    
+    html += `<table class="output-table"><tr><th>Pasangan Atribut</th><th>N Observasi</th><th>Pearson r</th><th>Kekuatan</th><th>Somers' D(Y|X)</th><th>Interpretasi</th></tr>`;
+    
+    const comparisons = [];
+    
+    // Sensory vs Overall, Recommended, Purchase Intent
+    sensoryAttrs.forEach(sensory => {
+        targetAttrs.forEach(target => {
+            const x = allData[sensory].filter((v, i) => v > 0 && allData[target][i] > 0);
+            const y = allData[target].filter((v, i) => allData[sensory][i] > 0 && v > 0);
+            
+            if (x.length >= 3) {
+                const r = pearsonCorrelation(x, y);
+                const sd = somersD(x, y);
+                comparisons.push({
+                    pair: `${variableDefs[sensory].label} × ${variableDefs[target].label}`,
+                    n: x.length,
+                    r: r,
+                    somers: sd,
+                    sensory: sensory,
+                    target: target
+                });
+                
+                const rClass = Math.abs(r) >= 0.6 ? 'corr-strong' : (Math.abs(r) >= 0.3 ? 'corr-moderate' : 'corr-weak');
+                const rStrength = Math.abs(r) >= 0.7 ? 'Kuat' : (Math.abs(r) >= 0.4 ? 'Sedang' : (Math.abs(r) >= 0.2 ? 'Lemah' : 'Sangat Lemah'));
+                const dClass = sd.d > 0.2 ? 'somers-positive' : (sd.d < -0.2 ? 'somers-negative' : 'somers-weak');
+                
+                html += `<tr><td style="text-align:left;"><b>${variableDefs[sensory].label}</b> × <b>${variableDefs[target].label}</b></td>`;
+                html += `<td>${x.length}</td>`;
+                html += `<td class="${rClass}"><b>${r.toFixed(3)}</b></td>`;
+                html += `<td>${rStrength}</td>`;
+                html += `<td class="${dClass}"><b>${sd.d.toFixed(3)}</b></td>`;
+                html += `<td>${sd.interpretation}</td></tr>`;
+            }
+        });
+    });
+    
+    // Overall vs Recommended, Purchase Intent
+    const overallPairs = [['overall','recommended'], ['overall','purchase_intent'], ['recommended','purchase_intent']];
+    overallPairs.forEach(([a, b]) => {
+        const x = allData[a].filter((v, i) => v > 0 && allData[b][i] > 0);
+        const y = allData[b].filter((v, i) => allData[a][i] > 0 && v > 0);
+        
+        if (x.length >= 3) {
+            const r = pearsonCorrelation(x, y);
+            const sd = somersD(x, y);
+            comparisons.push({
+                pair: `${variableDefs[a].label} × ${variableDefs[b].label}`,
+                n: x.length,
+                r: r,
+                somers: sd,
+                sensory: a,
+                target: b
+            });
+            
+            const rClass = Math.abs(r) >= 0.6 ? 'corr-strong' : (Math.abs(r) >= 0.3 ? 'corr-moderate' : 'corr-weak');
+            const rStrength = Math.abs(r) >= 0.7 ? 'Kuat' : (Math.abs(r) >= 0.4 ? 'Sedang' : (Math.abs(r) >= 0.2 ? 'Lemah' : 'Sangat Lemah'));
+            const dClass = sd.d > 0.2 ? 'somers-positive' : (sd.d < -0.2 ? 'somers-negative' : 'somers-weak');
+            
+            html += `<tr style="background:#e3f2fd;"><td style="text-align:left;"><b>${variableDefs[a].label}</b> × <b>${variableDefs[b].label}</b></td>`;
+            html += `<td>${x.length}</td>`;
+            html += `<td class="${rClass}"><b>${r.toFixed(3)}</b></td>`;
+            html += `<td>${rStrength}</td>`;
+            html += `<td class="${dClass}"><b>${sd.d.toFixed(3)}</b></td>`;
+            html += `<td>${sd.interpretation}</td></tr>`;
+        }
+    });
+    
+    html += `</table>`;
+    html += `<div class="note-box" style="margin-top:8px;"><b>📖 Interpretasi:</b><br>• <b>Pearson r:</b> >0.7 = Kuat, 0.4-0.7 = Sedang, 0.2-0.4 = Lemah, <0.2 = Sangat Lemah<br>• <b>Somers' D:</b> Mengukur asosiasi ordinal. D(Y|X) berarti seberapa baik X memprediksi Y. Range: -1 (negatif sempurna) sampai +1 (positif sempurna)<br>• <b>Implikasi:</b> Atribut sensoris dengan korelasi tinggi terhadap Overall/Recommended/Purchase Intent adalah <b>driver kunci</b> penerimaan produk</div>`;
+    html += `</div></div>`;
+    
+    // ===== DETAILED CROSSTABS (Collapsible) =====
+    html += `<div class="output-section"><div class="output-section-title collapsible" onclick="toggleCollapsible(this)" style="cursor:pointer;">📋 Detail Crosstab (Klik untuk Expand/Collapse)</div>`;
+    html += `<div class="collapsible-content" style="padding:10px;">`;
+    
+    comparisons.forEach(comp => {
+        html += `<h5 style="background:#e8ecf1;padding:8px 12px;margin:10px 0 5px;border-radius:4px;font-size:11px;">🔬 ${comp.pair}</h5>`;
+        
+        const x = allData[comp.sensory];
+        const y = allData[comp.target];
+        const ct = generateCrosstab(x, y, variableDefs[comp.sensory].label, variableDefs[comp.target].label);
+        
+        if (ct) {
+            html += ct;
+            html += `<p style="font-size:9px;color:#666;margin-top:5px;"><b>Pearson r = ${comp.r.toFixed(3)}</b> | <b>Somers' D = ${comp.somers.d.toFixed(3)}</b> (${comp.somers.interpretation}) | Concordant: ${comp.somers.concordant}, Discordant: ${comp.somers.discordant}, Tied Y: ${comp.somers.tiedY}</p>`;
+        } else {
+            html += `<p style="color:#d93025;">Data tidak cukup untuk membuat crosstab.</p>`;
+        }
+    });
+    
+    html += `</div></div>`;
+    
+    return html;
+}
+
+function toggleCollapsible(el) {
+    el.classList.toggle('collapsed');
+    const content = el.nextElementSibling;
+    content.classList.toggle('expanded');
+}
 
 // ==================== TARGET FUNCTIONS ====================
 function openTargetModal() {
@@ -453,63 +754,44 @@ function lgamma(x) {
     let xx = x, yy = x;
     let tmp = xx + 5.5;
     tmp -= (xx + 0.5) * Math.log(tmp);
-    for (let j = 0; j < 6; j++) {
-        yy += 1;
-        ser += cof[j] / yy;
-    }
+    for (let j = 0; j < 6; j++) { yy += 1; ser += cof[j] / yy; }
     return -tmp + Math.log(2.5066282746310005 * ser / xx);
 }
-
 function contFrac(a, b, x) {
-    const maxIter = 200;
-    const eps = 1e-12;
+    const maxIter = 200, eps = 1e-12;
     let f = 1, C = 1, D = 1;
     for (let j = 1; j <= maxIter; j++) {
         const m2 = j*2;
-        // even step
         D = 1 + ( - (a+m2/2) * (a+b+m2/2-1) * x / ((a+m2-1) * (a+m2)) ) * D;
         if (Math.abs(D) < eps) D = eps;
         C = 1 + ( - (b+m2/2) * (m2/2) * x / ((a+m2-1) * (a+m2)) ) / C;
         if (Math.abs(C) < eps) C = eps;
-        D = 1/D;
-        const delta = C*D;
-        f *= delta;
-        // odd step
+        D = 1/D; f *= C*D;
         D = 1 + ( - (m2/2+1) * (a+b+m2/2) * x / ((a+m2) * (a+m2+1)) ) * D;
         if (Math.abs(D) < eps) D = eps;
         C = 1 + ( - (a+m2/2+1) * (b+m2/2) * x / ((a+m2+1) * (a+m2+2)) ) / C;
         if (Math.abs(C) < eps) C = eps;
-        D = 1/D;
-        const delta2 = C*D;
-        f *= delta2;
-        if (Math.abs(delta-1) < eps && Math.abs(delta2-1) < eps) break;
+        D = 1/D; f *= C*D;
+        if (Math.abs(C*D-1) < eps) break;
     }
     return f;
 }
-
 function ibeta(a, b, x) {
     if (x < 0 || x > 1) return 0;
     if (x === 0 || x === 1) return x;
     const front = Math.exp(lgamma(a+b) - lgamma(a) - lgamma(b) + a*Math.log(x) + b*Math.log(1-x));
-    if (x < (a+1)/(a+b+2)) {
-        return front * contFrac(a, b, x) / a;
-    } else {
-        return 1 - front * contFrac(b, a, 1-x) / b;
-    }
+    if (x < (a+1)/(a+b+2)) return front * contFrac(a, b, x) / a;
+    else return 1 - front * contFrac(b, a, 1-x) / b;
 }
-
 function fPValue(F, df1, df2) {
     if (F <= 0) return 1;
     const x = df2 / (df2 + df1 * F);
     return 1 - ibeta(df2/2, df1/2, x);
 }
 
-// ==================== CUSTOM SUMMARY (ENHANCED) ====================
+// ==================== CUSTOM SUMMARY ====================
 function showCustomSummary() {
-    if (!lastAnalysisResults || !lastAnalysisResults.anovaResults) {
-        alert('⚠️ Jalankan analisis terlebih dahulu!');
-        return;
-    }
+    if (!lastAnalysisResults || !lastAnalysisResults.anovaResults) { alert('⚠️ Jalankan analisis terlebih dahulu!'); return; }
     const html = generateDynamicSummaryHTML();
     document.getElementById('outputContent').innerHTML = html;
     updateStatus('📄 Summary Report dari data aktual');
@@ -520,21 +802,15 @@ function generateDynamicSummaryHTML() {
         return '<p style="color:#d93025;">⚠️ Tidak ada data analisis. Jalankan Analisis Lengkap atau Profesional terlebih dahulu.</p>';
     }
     const ar = lastAnalysisResults.anovaResults;
-    const friedResults = lastAnalysisResults.friedResults || {};
     const sl = getActiveSL();
     const n = dataRows.length, k = numSamples;
     const scale = getActiveScale();
-    const modeLabel = lastAnalysisResults.analysisMode ? 
-        (lastAnalysisResults.analysisMode === TestMode.HEDONIK ? 'Hedonik' : 'Deskriptif') : 
-        getModeLabel();
+    const modeLabel = lastAnalysisResults.analysisMode === TestMode.HEDONIK ? 'Hedonik' : 'Deskriptif';
     const targetStr = targetConfig.rawInput || 'Tidak diatur';
     const targetEval = evaluateTargetFromResults(ar);
     const pref = calculatePreferenceRanking();
 
-    let html = `<div class="summary-container">`;
-    html += `<h2>📊 SUMMARY REPORT — ${modeLabel.toUpperCase()}</h2>`;
-
-    // 1. Tujuan/Target
+    let html = `<div class="summary-container"><h2>📊 SUMMARY REPORT — ${modeLabel.toUpperCase()}</h2>`;
     html += `<h3>🎯 Tujuan Pengujian</h3>`;
     html += `<div class="target-display-box"><strong>Target Perbandingan:</strong> ${escapeHtml(targetStr)}</div>`;
     if (targetEval.error) {
@@ -554,155 +830,33 @@ function generateDynamicSummaryHTML() {
             html += `<td><b>${d.avgBaseMean.toFixed(2)}</b></td>`;
             html += `<td class="${d.pass?'status-pass':'status-fail'}">${d.pass?'✅ Tercapai':'❌ Tidak Tercapai'}</td></tr>`;
         });
-        html += `</table>`;
-        const passCount = targetEval.passCount;
-        const totalAttrs = targetEval.total;
-        html += `<p>Hasil: <b>${passCount}/${totalAttrs}</b> atribut mencapai target.</p>`;
+        html += `</table><p>Hasil: <b>${targetEval.passCount}/${targetEval.total}</b> atribut mencapai target.</p>`;
     }
 
-    // 2. Hasil Analisis Deskriptif & Duncan
     html += `<h3>📊 Hasil Analisis Deskriptif & Duncan</h3>`;
-
-    // NEW: Ringkasan Signifikansi per Atribut dengan P-value
     html += `<h4>📊 Ringkasan Signifikansi per Atribut</h4>`;
     html += `<table class="summary-table"><tr><th>Atribut</th>${sampleNames.map((n,i)=>`<th>${String.fromCharCode(65+i)} (Mean)</th>`).join('')}<th>Sig (P-value)</th><th>Keterangan</th></tr>`;
     Object.keys(ar).forEach(attr => {
-        const a = ar[attr];
-        const pVal = a.pValue ?? null;
-        const isSig = a.sig;
+        const a = ar[attr]; const pVal = a.pValue ?? null; const isSig = a.sig;
         html += `<tr><td>${escapeHtml(attr)}</td>`;
-        for (let s = 0; s < k; s++) {
-            html += `<td>${a.sampleMeans ? a.sampleMeans[s].toFixed(2) : '-'}</td>`;
-        }
+        for (let s = 0; s < k; s++) html += `<td>${a.sampleMeans ? a.sampleMeans[s].toFixed(2) : '-'}</td>`;
         html += `<td class="${isSig ? 'sig-yes' : 'sig-no'}">${pVal !== null ? pVal.toFixed(4) : 'N/A'}</td>`;
         html += `<td class="${isSig ? 'sig-yes' : 'sig-no'}">${isSig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan'}</td></tr>`;
     });
     html += `</table>`;
 
-    const sigAttrs = [];
-    const nonSigAttrs = [];
-    Object.keys(ar).forEach(attr => {
-        const a = ar[attr];
-        const f = friedResults[attr];
-        const isSig = a.sig || (f && f.isSig);
-        if (isSig) sigAttrs.push(attr);
-        else nonSigAttrs.push(attr);
-    });
-
-    // Atribut berbeda nyata (detail dengan Duncan)
-    if (sigAttrs.length > 0) {
-        html += `<h4>🔍 Atribut Berbeda Nyata (${sigAttrs.length} atribut)</h4>`;
-        html += `<table class="summary-table"><tr><th>Atribut</th><th>Sampel</th><th>Mean</th><th>Duncan</th><th>Keterangan</th></tr>`;
-        sigAttrs.forEach(attr => {
-            const a = ar[attr];
-            for (let s = 0; s < k; s++) {
-                const meanVal = a.sampleMeans ? a.sampleMeans[s] : 0;
-                const duncanGroup = a.duncanGroups ? a.duncanGroups[s] : '';
-                html += `<tr>
-                    <td>${escapeHtml(attr)}</td>
-                    <td>${String.fromCharCode(65+s)} (${escapeHtml(sampleNames[s])})</td>
-                    <td>${meanVal.toFixed(2)}</td>
-                    <td><b>${duncanGroup}</b></td>
-                    <td class="sig-yes">Berbeda nyata</td>
-                </tr>`;
-            }
-        });
-        html += `</table>`;
-        html += `<p><b>Interpretasi:</b> Sampel dengan huruf Duncan berbeda menunjukkan perbedaan signifikan (p<0.05).</p>`;
-    }
-
-    // Atribut tidak berbeda nyata
-    if (nonSigAttrs.length > 0) {
-        html += `<h4>🔹 Atribut Tidak Berbeda Nyata (${nonSigAttrs.length} atribut)</h4>`;
-        html += `<table class="summary-table"><tr><th>Atribut</th>${sampleNames.map((n,i)=>`<th>${String.fromCharCode(65+i)} (Mean)</th>`).join('')}<th>Keterangan</th></tr>`;
-        nonSigAttrs.forEach(attr => {
-            const a = ar[attr];
-            html += `<tr><td>${escapeHtml(attr)}</td>`;
-            for (let s = 0; s < k; s++) {
-                const meanVal = a.sampleMeans ? a.sampleMeans[s] : 0;
-                html += `<td>${meanVal.toFixed(2)}</td>`;
-            }
-            html += `<td class="sig-no">Tidak berbeda nyata</td></tr>`;
-        });
-        html += `</table>`;
-        html += `<p><b>Interpretasi:</b> ${nonSigAttrs.length} dari ${Object.keys(ar).length} atribut tidak menunjukkan perbedaan signifikan.</p>`;
-    }
-
-    // 3. Preferensi
-    html += `<h3>🏆 Preferensi Panelis</h3>`;
-    html += `<table class="summary-table"><tr><th>Rank</th><th>Sampel</th><th>Jumlah Panelis</th><th>Persentase</th></tr>`;
-    pref.ranking.forEach(r => {
-        html += `<tr class="${r.rank===1?'rank-1':''}"><td>${r.rank}</td><td><b>${escapeHtml(r.name)}</b></td><td>${r.count}</td><td>${r.percentage.toFixed(1)}%</td></tr>`;
-    });
-    html += `</table>`;
-
-    // 4. Perbandingan Sampel Target (jika 2 perlakuan)
-    const parsedTarget = parseTargetString(targetStr);
-    if (parsedTarget && parsedTarget.treatments.length === 2) {
-        html += `<h3>⚖️ Perbandingan Sampel Target</h3>`;
-        const treatIndices = resolveTargetIndices(parsedTarget.treatments);
-        if (treatIndices.length === 2) {
-            const [t1, t2] = treatIndices;
-            const name1 = sampleNames[t1], name2 = sampleNames[t2];
-            html += `<p>Membandingkan <b>${escapeHtml(name1)} (${String.fromCharCode(65+t1)})</b> vs <b>${escapeHtml(name2)} (${String.fromCharCode(65+t2)})</b> berdasarkan data atribut dan preferensi:</p>`;
-            html += `<table class="summary-table"><tr><th>Atribut</th><th>${escapeHtml(name1)} (Mean)</th><th>${escapeHtml(name2)} (Mean)</th><th>Unggul</th></tr>`;
-            let unggul1 = 0, unggul2 = 0;
-            Object.keys(ar).forEach(attr => {
-                const mean1 = ar[attr].sampleMeans[t1];
-                const mean2 = ar[attr].sampleMeans[t2];
-                let unggul = mean1 > mean2 ? name1 : (mean2 > mean1 ? name2 : 'Sama');
-                if (unggul === name1) unggul1++;
-                else if (unggul === name2) unggul2++;
-                html += `<tr><td>${escapeHtml(attr)}</td><td>${mean1.toFixed(2)}</td><td>${mean2.toFixed(2)}</td><td>${escapeHtml(unggul)}</td></tr>`;
-            });
-            html += `</table>`;
-            html += `<p>Dari segi atribut, <b>${escapeHtml(name1)}</b> unggul pada ${unggul1} atribut, <b>${escapeHtml(name2)}</b> unggul pada ${unggul2} atribut.</p>`;
-            const pref1 = pref.ranking.find(r => r.name === name1);
-            const pref2 = pref.ranking.find(r => r.name === name2);
-            html += `<p>Preferensi panelis: <b>${escapeHtml(name1)}</b> ${pref1 ? pref1.percentage.toFixed(1)+'%' : 'tidak ada'}, <b>${escapeHtml(name2)}</b> ${pref2 ? pref2.percentage.toFixed(1)+'%' : 'tidak ada'}.</p>`;
-            if (pref1 && pref2) {
-                const better = pref1.percentage >= pref2.percentage ? name1 : name2;
-                html += `<p>➡️ Berdasarkan preferensi, <b>${escapeHtml(better)}</b> lebih disukai panelis.</p>`;
-            }
-        }
-    }
-
-    // 5. Tindak Lanjut & Rekomendasi
-    html += `<h3>📋 Tindak Lanjut & Rekomendasi</h3>`;
-    html += `<ol>`;
-    if (targetEval.passCount === targetEval.total && targetEval.total > 0) {
-        html += `<li>Target telah tercapai pada semua atribut. Tidak diperlukan reformulasi, cukup pertahankan kualitas.</li>`;
-    } else if (targetEval.total > 0) {
-        html += `<li>Perlu perbaikan pada atribut yang belum mencapai target. Fokus pada peningkatan atribut yang berbeda nyata dan masih di bawah baseline.</li>`;
-    }
-    if (sigAttrs.length > 0) {
-        html += `<li>Atribut yang berbeda nyata dan memiliki potensi untuk ditingkatkan: ${sigAttrs.map(a=>escapeHtml(a)).join(', ')}.</li>`;
-    }
-    if (nonSigAttrs.length > 0) {
-        html += `<li>Atribut yang tidak berbeda nyata dapat dipertahankan karena sudah setara dengan eksisting.</li>`;
-    }
-    const winner = pref.ranking[0];
-    if (winner) {
-        html += `<li>Produk dengan preferensi tertinggi adalah <b>${escapeHtml(winner.name)}</b> (${winner.percentage.toFixed(1)}%). Jadikan sebagai acuan atau alternatif target.</li>`;
-    }
-    if (targetEval.total > 0 && targetEval.details) {
-        const lowAttrs = targetEval.details.filter(d => !d.pass).map(d => d.attr);
-        if (lowAttrs.length > 0) {
-            html += `<li>Atribut yang belum mencapai target: ${lowAttrs.join(', ')}. Disarankan untuk melakukan penyesuaian formulasi pada atribut tersebut.</li>`;
-        }
-    }
-    html += `</ol>`;
-
-    html += `</div>`;
+    html += `<h3>🏆 Preferensi Panelis</h3><table class="summary-table"><tr><th>Rank</th><th>Sampel</th><th>Jumlah Panelis</th><th>Persentase</th></tr>`;
+    pref.ranking.forEach(r => { html += `<tr class="${r.rank===1?'rank-1':''}"><td>${r.rank}</td><td><b>${escapeHtml(r.name)}</b></td><td>${r.count}</td><td>${r.percentage.toFixed(1)}%</td></tr>`; });
+    html += `</table></div>`;
     return html;
 }
 
-// PDF & Excel Summary
+// PDF & excel summary functions
 function downloadSummaryPDF() {
     const html = generateDynamicSummaryHTML();
     const pdfWindow = window.open('','_blank','width=1000,height=800');
     if(!pdfWindow){alert('Popup diblokir!');return;}
-    pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Summary</title><style>body{font-family:'Segoe UI',sans-serif;font-size:12px;line-height:1.5;padding:20px;}h2{color:#1a3a5c;border-bottom:3px solid #1a3a5c;}h3{color:#2c3e50;background:#e8ecf1;padding:8px 12px;border-left:5px solid #1a3a5c;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#34495e;color:white;padding:8px;text-align:center;}td{padding:6px 8px;border:1px solid #ddd;text-align:center;}.status-fail{color:#d93025;font-weight:bold;}.status-pass{color:#0d904f;font-weight:bold;}@media print{body{margin:0;padding:10px;}}</style></head><body><h1>📊 WebSPSS v2.6 — Summary Report</h1>${html}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`);
+    pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Summary</title><style>body{font-family:'Segoe UI',sans-serif;font-size:12px;line-height:1.5;padding:20px;}h2{color:#1a3a5c;border-bottom:3px solid #1a3a5c;}h3{color:#2c3e50;background:#e8ecf1;padding:8px 12px;border-left:5px solid #1a3a5c;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#34495e;color:white;padding:8px;text-align:center;}td{padding:6px 8px;border:1px solid #ddd;text-align:center;}.status-fail{color:#d93025;font-weight:bold;}.status-pass{color:#0d904f;font-weight:bold;}@media print{body{margin:0;padding:10px;}}</style></head><body><h1>📊 WebSPSS v2.7 — Summary Report</h1>${html}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`);
     pdfWindow.document.close();
     updateStatus('📥 Summary PDF siap');
 }
@@ -711,7 +865,7 @@ async function downloadSummaryExcel() {
     try {
         updateStatus('⏳ Menyiapkan Summary Excel...');
         const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'WebSPSS v2.6';
+        workbook.creator = 'WebSPSS v2.7';
         const headerStyle = { font:{bold:true,color:{argb:'FFFFFFFF'},size:11},fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A5C'}},alignment:{horizontal:'center',vertical:'middle',wrapText:true},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}};
         const cellStyle = { font:{size:10},alignment:{horizontal:'center',vertical:'middle'},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} };
         const ar = lastAnalysisResults?.anovaResults || {};
@@ -739,7 +893,6 @@ async function downloadSummaryExcel() {
                 row.push(d.pass?'TERPENUHI':'TIDAK TERPENUHI');
                 const dataRow = ws2.addRow(row);
                 dataRow.eachCell(c => Object.assign(c, cellStyle));
-                Object.assign(dataRow.getCell(evalHeaders.length), d.pass?{font:{bold:true,color:{argb:'FF0D904F'}},fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFD4EDDA'}}}:{font:{bold:true,color:{argb:'FFD93025'}},fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFEBEE'}}});
             });
         } else ws2.addRow(['Target tidak valid atau belum ada data']);
         ws2.columns.forEach(c => c.width=18);
@@ -761,12 +914,22 @@ function toggleTestMode() {
     saveState();
     AppConfig.testMode = AppConfig.testMode === TestMode.HEDONIK ? TestMode.DESKRIPTIF : TestMode.HEDONIK;
     const scale = getActiveScale();
+    
+    // Update active variables based on mode
+    if (AppConfig.testMode === TestMode.HEDONIK) {
+        activeVariables = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall','recommended','purchase_intent'];
+    } else {
+        activeVariables = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall'];
+    }
+    
+    // Update variable definitions
     activeVariables.forEach(key => {
         if (variableDefs[key]) {
             if (key === 'overall') variableDefs[key].hedonik = AppConfig.testMode===TestMode.HEDONIK?'OVERALL LIKING':'OVERALL INTENSITY';
             else variableDefs[key].hedonik = `${scale.prefix} ${variableDefs[key].label.toUpperCase()}`;
         }
     });
+    
     document.getElementById('btnToggleMode').textContent = `🔄 Mode: ${getModeLabel()}`;
     const ind = document.getElementById('modeIndicator');
     ind.className = `mode-indicator ${AppConfig.testMode}`;
@@ -789,8 +952,7 @@ function openVariableManager() {
 }
 function closeVariableManager() {
     document.getElementById('varModal').classList.remove('show');
-    pendingVarDefs = null;
-    pendingActiveVars = null;
+    pendingVarDefs = null; pendingActiveVars = null;
 }
 function renderVarList() {
     const list = document.getElementById('varList');
@@ -801,8 +963,10 @@ function renderVarList() {
     let html = '';
     pendingActiveVars.forEach(key => {
         const def = pendingVarDefs[key] || { label: key, hedonik: getActiveScale().prefix + ' ' + key.toUpperCase() };
+        const isHedonicOnly = HEDONIC_ONLY_VARS.includes(key);
+        const badge = isHedonicOnly ? ' <span style="color:#1a73e8;font-size:8px;">[Hedonik Only]</span>' : '';
         html += `<div class="var-item">
-            <span class="var-key">🔑 ${escapeHtml(key)}</span>
+            <span class="var-key">🔑 ${escapeHtml(key)}${badge}</span>
             <input class="var-label-input" value="${escapeHtml(def.label)}" onchange="pendingVarDefs['${key}'].label=this.value" title="Label tampilan">
             <input class="var-hedonik-input" value="${escapeHtml(def.hedonik)}" onchange="pendingVarDefs['${key}'].hedonik=this.value" title="Nama kolom">
             <button onclick="removeVarItem('${key}')" title="Hapus variabel">✕</button>
@@ -831,9 +995,13 @@ function addVariable() {
     updateStatus(`✅ Variabel "${label}" ditambahkan`);
 }
 function resetVariables() {
-    if (!confirm('Reset ke 7 variabel default?')) return;
+    if (!confirm('Reset ke variabel default?')) return;
     pendingVarDefs = JSON.parse(JSON.stringify(defaultVariableDefs));
-    pendingActiveVars = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall'];
+    if (AppConfig.testMode === TestMode.HEDONIK) {
+        pendingActiveVars = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall','recommended','purchase_intent'];
+    } else {
+        pendingActiveVars = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall'];
+    }
     const scale = getActiveScale();
     Object.keys(pendingVarDefs).forEach(key => {
         if (key !== 'overall') pendingVarDefs[key].hedonik = `${scale.prefix} ${pendingVarDefs[key].label.toUpperCase()}`;
@@ -862,24 +1030,20 @@ function applyVariables() {
 function getActivePK() { return activeVariables; }
 function getActivePL() { return activeVariables.map(v => variableDefs[v]?.hedonik || v); }
 function getActiveSL() { return activeVariables.map(v => variableDefs[v]?.label || v); }
-function getHedonikLabel(score) {
-    const scale = getActiveScale();
-    const r = Math.round(score);
-    if (r < 1 || r > scale.points) return '—';
-    return scale.labels[r-1];
-}
+
+// FIXED: generateColumns - removed KUAT/LEMAH
 function generateColumns() {
     const c = ['Nama Panelis','Jenis Kelamin','Usia','Departement'];
     const pb = getActivePL();
     for (let s = 1; s <= numSamples; s++) {
         const sf = s === 1 ? '' : s;
         pb.forEach(p => c.push(p + sf));
-        c.push('KUAT' + (s === 1 ? '' : s));
-        c.push('LEMAH' + (s === 1 ? '' : s));
+        // REMOVED: KUAT and LEMAH columns
     }
     c.push('PREFERENSI','ALASAN');
     return c;
 }
+
 function getParamColumns(si) { const sf = si === 1 ? '' : si; const obj = {}; const pl = getActivePL(); activeVariables.forEach((k,i) => { obj[k] = pl[i] + sf; }); return obj; }
 function getSampleData(si) {
     const cols = getParamColumns(si);
@@ -892,12 +1056,12 @@ function getSampleData(si) {
         return obj;
     });
 }
+
 function saveState() {
     undoStack.push({
         dataColumns: JSON.parse(JSON.stringify(dataColumns)),
         dataRows: JSON.parse(JSON.stringify(dataRows)),
-        numSamples,
-        sampleNames: [...sampleNames],
+        numSamples, sampleNames: [...sampleNames],
         variableDefs: JSON.parse(JSON.stringify(variableDefs)),
         activeVariables: [...activeVariables],
         testMode: AppConfig.testMode,
@@ -925,8 +1089,7 @@ function redo() {
 function restoreState(s) {
     dataColumns = JSON.parse(JSON.stringify(s.dataColumns));
     dataRows = JSON.parse(JSON.stringify(s.dataRows));
-    numSamples = s.numSamples;
-    sampleNames = [...s.sampleNames];
+    numSamples = s.numSamples; sampleNames = [...s.sampleNames];
     variableDefs = JSON.parse(JSON.stringify(s.variableDefs));
     activeVariables = [...s.activeVariables];
     if (s.testMode) AppConfig.testMode = s.testMode;
@@ -947,8 +1110,7 @@ function isCellSelected(r,c) {
 }
 function selectAll() {
     if (!dataRows.length) return;
-    selStart = { row: 0, col: 0 };
-    selEnd = { row: dataRows.length-1, col: dataColumns.length-1 };
+    selStart = { row: 0, col: 0 }; selEnd = { row: dataRows.length-1, col: dataColumns.length-1 };
     renderBody();
 }
 function setSelection(r,c,ext=false) {
@@ -981,12 +1143,33 @@ function applyBlindCodes() {
     renderSampleNameInputs();
     updateStatus('🎲 Blind: '+newNames.join(', '));
 }
+
+// FIXED: Helper to determine which sample a column belongs to
+function getColumnSampleIndex(colIndex) {
+    if (colIndex < 4) return -1; // metadata columns
+    const numAttrs = activeVariables.length;
+    const sampleIndex = Math.floor((colIndex - 4) / numAttrs);
+    if (sampleIndex >= numSamples) return -1; // PREFERENSI, ALASAN
+    return sampleIndex;
+}
+
+// FIXED: initTable with sample colors
 function initTable() {
     dataColumns = generateColumns();
-    document.getElementById('tableHead').innerHTML = '<tr><th class="row-num" onmousedown="event.preventDefault()">#</th>'+dataColumns.map((col,ci) => `<th onmousedown="onColHeaderMouseDown(${ci},event)" title="${escapeHtml(col)}">${col.length>14?col.substring(0,12)+'…':escapeHtml(col)}</th>`).join('')+'</tr>';
+    let headerHTML = '<tr><th class="row-num" onmousedown="event.preventDefault()">#</th>';
+    dataColumns.forEach((col, ci) => {
+        const sampleIdx = getColumnSampleIndex(ci);
+        let headerClass = '';
+        if (sampleIdx >= 0) headerClass = ` sample-${['a','b','c','d'][sampleIdx]}-header`;
+        headerHTML += `<th class="${headerClass}" onmousedown="onColHeaderMouseDown(${ci},event)" title="${escapeHtml(col)}">${col.length>14?col.substring(0,12)+'…':escapeHtml(col)}</th>`;
+    });
+    headerHTML += '</tr>';
+    document.getElementById('tableHead').innerHTML = headerHTML;
     renderBody();
     if (!undoStack.length) saveState();
 }
+
+// FIXED: renderBody with sample colors and proper input handling
 function renderBody() {
     const tb = document.getElementById('tableBody');
     if (!dataRows.length) {
@@ -995,14 +1178,18 @@ function renderBody() {
         return;
     }
     let html = '';
-    dataRows.forEach((row,ri) => {
+    dataRows.forEach((row, ri) => {
         html += '<tr>';
         const rs = isCellSelected(ri,0) && isCellSelected(ri,dataColumns.length-1) ? ' selected-row' : '';
         html += `<td class="row-num${rs}" onmousedown="onRowNumMouseDown(${ri},event)">${ri+1}</td>`;
-        dataColumns.forEach((col,ci) => {
+        dataColumns.forEach((col, ci) => {
             const v = row[col] !== undefined ? row[col] : '';
             const cs = isCellSelected(ri,ci) ? ' selected-cell' : '';
-            html += `<td class="${cs}" onmousedown="onCellMouseDown(${ri},${ci},event)" onmouseenter="onCellMouseEnter(${ri},${ci})"><input value="${escapeHtml(String(v))}" oninput="onInputChange(${ri},'${escapeAttr(col)}',this)" onfocus="onCellFocus(${ri},${ci})"></td>`;
+            const sampleIdx = getColumnSampleIndex(ci);
+            let sampleClass = '';
+            if (sampleIdx >= 0) sampleClass = ` sample-${['a','b','c','d'][sampleIdx]}`;
+            // FIXED: Don't put onmousedown on td when it contains input - let input handle its own focus
+            html += `<td class="${cs}${sampleClass}"><input value="${escapeHtml(String(v))}" oninput="onInputChange(${ri},'${escapeAttr(col)}',this)" onfocus="onCellFocus(${ri},${ci})" onmousedown="onInputMouseDown(event)"></td>`;
         });
         html += '</tr>';
     });
@@ -1010,8 +1197,20 @@ function renderBody() {
     document.getElementById('panelCount').textContent = `Panelis: ${dataRows.length}`;
 }
 
+// NEW: Input mousedown handler - prevent selection drag on input
+function onInputMouseDown(e) {
+    e.stopPropagation(); // Prevent td from handling selection
+}
+
 // ==================== MOUSE EVENTS ====================
-function onCellMouseDown(r,c,e) { e.preventDefault(); document.getElementById('editorArea').focus(); setSelection(r,c,e.shiftKey && selStart); isSelecting = true; }
+// FIXED: onCellMouseDown - only prevent default if not clicking on input
+function onCellMouseDown(r,c,e) { 
+    if (e.target.tagName === 'INPUT') return; // Let input handle its own focus
+    e.preventDefault(); 
+    document.getElementById('editorArea').focus(); 
+    setSelection(r,c,e.shiftKey && selStart); 
+    isSelecting = true; 
+}
 function onCellMouseEnter(r,c) { if (!isSelecting) return; selEnd = { row: r, col: c }; renderBody(); }
 function onRowNumMouseDown(r,e) { e.preventDefault(); document.getElementById('editorArea').focus(); if (e.shiftKey && selStart) selEnd = { row: r, col: dataColumns.length-1 }; else { selStart = { row: r, col: 0 }; selEnd = { row: r, col: dataColumns.length-1 }; } renderBody(); isSelecting = true; }
 function onColHeaderMouseDown(c,e) { e.preventDefault(); document.getElementById('editorArea').focus(); if (e.shiftKey && selStart) selEnd = { row: dataRows.length-1, col: c }; else { selStart = { row: 0, col: c }; selEnd = { row: dataRows.length-1, col: c }; } renderBody(); isSelecting = true; }
@@ -1092,26 +1291,87 @@ function onInputChange(ri,cn,el) {
 }
 
 // ==================== SAMPLE DATA ====================
+// FIXED: createSampleRow - removed KUAT/LEMAH, added recommended/purchase_intent for hedonic
 function createSampleRow(name,g,age,dept,scores) {
     const row={'Nama Panelis':name,'Jenis Kelamin':g,'Usia':age,'Departement':dept};
     const pb=getActivePL();
     const numAttr=activeVariables.length;
-    const sampleScores = scores.map((s,i)=>({sample:String.fromCharCode(65+i),score:s.slice(0,numAttr).reduce((a,b)=>a+b,0)}));
+    const sampleScores = scores.map((s,i)=>({sample:String.fromCharCode(65+i),score:s.slice(0,Math.min(7,numAttr)).reduce((a,b)=>a+b,0)}));
     sampleScores.sort((a,b)=>b.score-a.score);
     scores.forEach((s,i)=>{
         const sf=i===0?'':(i+1);
         pb.forEach((p,pi)=>{row[p+sf]=s[pi]||0;});
-        row['KUAT'+sf]=s[numAttr]||'-';
-        row['LEMAH'+sf]=s[numAttr+1]||'-';
     });
     row['PREFERENSI']=sampleScores.map(s=>s.sample).join(';');
     row['ALASAN']='';
     return row;
 }
 function loadSampleData(d) { saveState(); dataRows=d.map(r=>createSampleRow(...r)); clearSelection(); initTable(); renderSampleNameInputs(); updateStatus(`✅ ${dataRows.length} panelis`); document.getElementById('outputContent').innerHTML=`<div style="text-align:center;padding:30px;"><p style="font-size:28px;">✅</p><p><b>${dataRows.length} Panelis</b> siap!</p></div>`; }
-function loadSample2() { numSamples=2; sampleNames=['Sampel A','Sampel B']; renderSampleNameInputs(); loadSampleData([['P01',2,1,'PR',[[4,4,4,4,4,4,4,'Semua','-'],[2,4,4,2,4,4,4,'Aroma','Tekstur']]],['P02',1,2,'RND',[[4,2,4,4,4,4,4,'Rasa','Warna'],[5,5,5,2,4,4,4,'Penampilan','Tekstur']]],['P03',2,1,'QA',[[5,4,5,4,5,4,5,'Tekstur','-'],[4,4,4,2,5,4,4,'Aroma','Kering']]],['P04',1,2,'PR',[[4,2,5,4,4,4,4,'Aroma','Warna'],[5,5,5,4,5,5,5,'Semua','-']]],['P05',2,2,'QA',[[4,4,4,4,5,4,4,'Rasa','Asin'],[4,4,4,2,4,4,2,'Penampilan','Tekstur']]]]); }
-function loadSample3() { numSamples=3; sampleNames=['Sampel A','Sampel B','Sampel C']; renderSampleNameInputs(); loadSampleData([['P01',2,1,'PR',[[4,4,4,4,4,4,4,'Semua','-'],[3,4,3,2,3,3,3,'Aroma','Tekstur'],[5,5,5,5,5,5,5,'Semua','-']]],['P02',1,2,'RND',[[4,2,4,4,4,4,4,'Rasa','Warna'],[5,5,5,2,4,4,4,'Penampilan','Tekstur'],[4,4,4,4,4,4,4,'Ok','-']]],['P03',2,1,'QA',[[5,4,5,4,5,4,5,'Tekstur','-'],[4,4,4,2,5,4,4,'Aroma','Kering'],[4,5,5,4,5,5,5,'Warna','-']]],['P04',1,2,'PR',[[4,2,5,4,4,4,4,'Aroma','Warna'],[5,5,5,4,5,5,5,'Semua','-'],[4,4,4,4,4,4,4,'Cukup','-']]],['P05',2,2,'QA',[[4,4,4,4,5,4,4,'Rasa','Asin'],[4,4,4,2,4,4,2,'Penampilan','Tekstur'],[5,5,5,5,5,5,5,'Sempurna','-']]]]); }
-function loadSample4() { numSamples=4; sampleNames=['Sampel A','Sampel B','Sampel C','Sampel D']; renderSampleNameInputs(); loadSampleData([['P01',2,1,'PR',[[4,4,4,4,4,4,4,'Semua','-'],[2,4,4,2,4,4,4,'Aroma','Tekstur'],[5,5,5,5,5,5,5,'Suka','-'],[3,3,3,3,3,3,3,'Cukup','-']]],['P02',1,2,'RND',[[4,2,4,4,4,4,4,'Rasa','Warna'],[5,5,5,2,4,4,4,'Penampilan','Tekstur'],[4,4,4,4,4,4,4,'Ok','-'],[3,3,3,3,3,3,3,'Cukup','-']]],['P03',2,1,'QA',[[5,4,5,4,5,4,5,'Tekstur','-'],[4,4,4,2,5,4,4,'Aroma','Kering'],[4,5,5,4,5,5,5,'Warna','-'],[4,4,4,4,4,4,4,'Ok','-']]],['P04',1,2,'PR',[[4,2,5,4,4,4,4,'Aroma','Warna'],[5,5,5,4,5,5,5,'Semua','-'],[4,4,4,4,4,4,4,'Cukup','-'],[5,5,5,5,5,5,5,'Sempurna','-']]],['P05',2,2,'QA',[[4,4,4,4,5,4,4,'Rasa','Asin'],[4,4,4,2,4,4,2,'Penampilan','Tekstur'],[5,5,5,5,5,5,5,'Sempurna','-'],[4,4,3,4,3,3,3,'Cukup','-']]]]); }
+
+// FIXED: Sample data includes recommended and purchase_intent for hedonic
+function loadSample2() { 
+    numSamples=2; sampleNames=['Sampel A','Sampel B']; renderSampleNameInputs(); 
+    if (AppConfig.testMode === TestMode.HEDONIK) {
+        // 9 attributes: penampilan, warna, aroma, tekstur, rasa, aftertaste, overall, recommended, purchase_intent
+        loadSampleData([
+            ['P01',2,1,'PR',[[4,4,4,4,4,4,4,5,4],[2,4,4,2,4,4,4,3,3]]],
+            ['P02',1,2,'RND',[[4,2,4,4,4,4,4,4,4],[5,5,5,2,4,4,4,4,4]]],
+            ['P03',2,1,'QA',[[5,4,5,4,5,4,5,5,5],[4,4,4,2,5,4,4,3,3]]],
+            ['P04',1,2,'PR',[[4,2,5,4,4,4,4,4,4],[5,5,5,4,5,5,5,5,5]]],
+            ['P05',2,2,'QA',[[4,4,4,4,5,4,4,4,4],[4,4,4,2,4,4,2,2,2]]]
+        ]); 
+    } else {
+        // 7 attributes: penampilan, warna, aroma, tekstur, rasa, aftertaste, overall
+        loadSampleData([
+            ['P01',2,1,'PR',[[4,4,4,4,4,4,4],[2,4,4,2,4,4,4]]],
+            ['P02',1,2,'RND',[[4,2,4,4,4,4,4],[5,5,5,2,4,4,4]]],
+            ['P03',2,1,'QA',[[5,4,5,4,5,4,5],[4,4,4,2,5,4,4]]],
+            ['P04',1,2,'PR',[[4,2,5,4,4,4,4],[5,5,5,4,5,5,5]]],
+            ['P05',2,2,'QA',[[4,4,4,4,5,4,4],[4,4,4,2,4,4,2]]]
+        ]);
+    }
+}
+function loadSample3() { 
+    numSamples=3; sampleNames=['Sampel A','Sampel B','Sampel C']; renderSampleNameInputs(); 
+    if (AppConfig.testMode === TestMode.HEDONIK) {
+        loadSampleData([
+            ['P01',2,1,'PR',[[4,4,4,4,4,4,4,5,4],[3,4,3,2,3,3,3,2,2],[5,5,5,5,5,5,5,5,5]]],
+            ['P02',1,2,'RND',[[4,2,4,4,4,4,4,4,4],[5,5,5,2,4,4,4,3,3],[4,4,4,4,4,4,4,4,4]]],
+            ['P03',2,1,'QA',[[5,4,5,4,5,4,5,5,5],[4,4,4,2,5,4,4,3,3],[4,5,5,4,5,5,5,5,5]]],
+            ['P04',1,2,'PR',[[4,2,5,4,4,4,4,4,4],[5,5,5,4,5,5,5,5,5],[4,4,4,4,4,4,4,4,4]]],
+            ['P05',2,2,'QA',[[4,4,4,4,5,4,4,4,4],[4,4,4,2,4,4,2,2,2],[5,5,5,5,5,5,5,5,5]]]
+        ]);
+    } else {
+        loadSampleData([
+            ['P01',2,1,'PR',[[4,4,4,4,4,4,4],[3,4,3,2,3,3,3],[5,5,5,5,5,5,5]]],
+            ['P02',1,2,'RND',[[4,2,4,4,4,4,4],[5,5,5,2,4,4,4],[4,4,4,4,4,4,4]]],
+            ['P03',2,1,'QA',[[5,4,5,4,5,4,5],[4,4,4,2,5,4,4],[4,5,5,4,5,5,5]]],
+            ['P04',1,2,'PR',[[4,2,5,4,4,4,4],[5,5,5,4,5,5,5],[4,4,4,4,4,4,4]]],
+            ['P05',2,2,'QA',[[4,4,4,4,5,4,4],[4,4,4,2,4,4,2],[5,5,5,5,5,5,5]]]
+        ]);
+    }
+}
+function loadSample4() { 
+    numSamples=4; sampleNames=['Sampel A','Sampel B','Sampel C','Sampel D']; renderSampleNameInputs(); 
+    if (AppConfig.testMode === TestMode.HEDONIK) {
+        loadSampleData([
+            ['P01',2,1,'PR',[[4,4,4,4,4,4,4,5,4],[2,4,4,2,4,4,4,3,3],[5,5,5,5,5,5,5,5,5],[3,3,3,3,3,3,3,3,2]]],
+            ['P02',1,2,'RND',[[4,2,4,4,4,4,4,4,4],[5,5,5,2,4,4,4,3,3],[4,4,4,4,4,4,4,4,4],[3,3,3,3,3,3,3,2,2]]],
+            ['P03',2,1,'QA',[[5,4,5,4,5,4,5,5,5],[4,4,4,2,5,4,4,3,3],[4,5,5,4,5,5,5,5,5],[4,4,4,4,4,4,4,4,4]]],
+            ['P04',1,2,'PR',[[4,2,5,4,4,4,4,4,4],[5,5,5,4,5,5,5,5,5],[4,4,4,4,4,4,4,4,4],[5,5,5,5,5,5,5,5,5]]],
+            ['P05',2,2,'QA',[[4,4,4,4,5,4,4,4,4],[4,4,4,2,4,4,2,2,2],[5,5,5,5,5,5,5,5,5],[4,4,3,4,3,3,3,3,2]]]
+        ]);
+    } else {
+        loadSampleData([
+            ['P01',2,1,'PR',[[4,4,4,4,4,4,4],[2,4,4,2,4,4,4],[5,5,5,5,5,5,5],[3,3,3,3,3,3,3]]],
+            ['P02',1,2,'RND',[[4,2,4,4,4,4,4],[5,5,5,2,4,4,4],[4,4,4,4,4,4,4],[3,3,3,3,3,3,3]]],
+            ['P03',2,1,'QA',[[5,4,5,4,5,4,5],[4,4,4,2,5,4,4],[4,5,5,4,5,5,5],[4,4,4,4,4,4,4]]],
+            ['P04',1,2,'PR',[[4,2,5,4,4,4,4],[5,5,5,4,5,5,5],[4,4,4,4,4,4,4],[5,5,5,5,5,5,5]]],
+            ['P05',2,2,'QA',[[4,4,4,4,5,4,4],[4,4,4,2,4,4,2],[5,5,5,5,5,5,5],[4,4,3,4,3,3,3]]]
+        ]);
+    }
+}
+
 function addRow() { saveState(); const nr={}; dataColumns.forEach(c=>nr[c]=''); dataRows.push(nr); initTable(); updateStatus(`Baris ditambah (${dataRows.length})`); }
 function clearAllData() { if (confirm('Hapus SEMUA?')) { saveState(); dataRows=[]; clearSelection(); initTable(); } }
 function calculatePreferenceRanking() {
@@ -1142,7 +1402,7 @@ function addOutputSection(title,content,isGold=false) {
 }
 function clearOutput() { document.getElementById('outputContent').innerHTML=''; lastAnalysisResults=null; updateStatus('Output cleared'); }
 function printOutput() { window.print(); }
-function updateStatus(msg) { document.getElementById('statusBar').textContent='v2.6 | '+msg; document.getElementById('statusLeft').textContent=new Date().toLocaleTimeString(); }
+function updateStatus(msg) { document.getElementById('statusBar').textContent='v2.7 | '+msg; document.getElementById('statusLeft').textContent=new Date().toLocaleTimeString(); }
 
 // ==================== EXPORT FUNCTIONS ====================
 function downloadPDF() {
@@ -1151,7 +1411,7 @@ function downloadPDF() {
     const scale=getActiveScale();
     const pdfWindow=window.open('','_blank','width=1000,height=800');
     if (!pdfWindow) { alert('Popup diblokir! Izinkan popup untuk website ini.'); return; }
-    pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report — ${modeLabel}</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;font-size:10px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;font-size:10px;border:1px solid #ddd;}canvas{max-width:100%;}@media print{body{margin:0;padding:10px;}}</style></head><body><h2>📊 WebSPSS v2.6 — Laporan Uji ${modeLabel}</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | Skala: ${scale.label} ${scale.points}-poin | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`);
+    pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report — ${modeLabel}</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;font-size:10px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;font-size:10px;border:1px solid #ddd;}canvas{max-width:100%;}@media print{body{margin:0;padding:10px;}}</style></head><body><h2>📊 WebSPSS v2.7 — Laporan Uji ${modeLabel}</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | Skala: ${scale.label} ${scale.points}-poin | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`);
     pdfWindow.document.close();
     updateStatus(`📄 PDF ${modeLabel} siap`);
 }
@@ -1179,7 +1439,7 @@ async function downloadExcel() {
     try {
         updateStatus('⏳ Menyiapkan Excel profesional...');
         const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'WebSPSS v2.6';
+        workbook.creator = 'WebSPSS v2.7';
         const modeLabel = getModeLabel();
         const scale = getActiveScale();
         const headerStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Segoe UI' }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF34495E' } }, alignment: { horizontal: 'center', vertical: 'middle', wrapText: true }, border: { top: { style: 'thin', color: { argb: 'FF2C3E50' } }, bottom: { style: 'thin', color: { argb: 'FF2C3E50' } }, left: { style: 'thin', color: { argb: 'FF2C3E50' } }, right: { style: 'thin', color: { argb: 'FF2C3E50' } } } };
@@ -1508,8 +1768,8 @@ function runCore(isGold) {
     pk.forEach((p, pi) => { const groups = []; for (let s = 1; s <= k; s++) groups.push(getSampleData(s).map(x => x[p])); const fr = friedmanTest(groups); friedResults[sl[pi]] = fr; friedHTML += `<tr><td style="text-align:left;">${escapeHtml(sl[pi])}</td><td>${fr.nv||n}</td><td><b>${fr.chi2.toFixed(3)}</b></td><td>${fr.df}</td><td class="${fr.isSig?'sig-yes':'sig-no'}">${fr.isSig?'<0.05':'>0.05'}</td><td class="${fr.isSig?'sig-yes':'sig-no'}">${fr.isSig?'Berbeda signifikan':'Tidak berbeda signifikan'}${useFriedmanFallback?' <b>(acuan utama)</b>':''}</td></tr>`; });
     friedHTML += '</table>';
     addOutputSection('📊 Friedman Test', friedHTML, isGold);
-    const spssStyleHTML = renderDuncanSPSSStyle(anovaResults, sampleNames, n);
-    if (spssStyleHTML) { addOutputSection('📊 Duncan Post Hoc (Format SPSS)', spssStyleHTML, isGold); }
+    const spssStyleHtml = renderDuncanSPSSStyle(anovaResults, sampleNames, n);
+    if (spssStyleHtml) { addOutputSection('📊 Duncan Post Hoc (Format SPSS)', spssStyleHtml, isGold); }
     const spiderSamplesData = Array.from({ length: k }, (_, si) => ({ values: pk.map((p, pi) => spiderMeanData[sl[pi]]?.[si] || 0) }));
     const spId = 'spiderChart' + Date.now();
     let spHTML = `<div class="spider-chart-container"><canvas id="${spId}" width="450" height="450"></canvas><div class="legend-container">${['#1a73e8','#d93025','#0d904f','#e6a817'].slice(0,k).map((c,i) => `<div class="legend-item"><div class="legend-color" style="background:${c}"></div>${String.fromCharCode(65+i)}: ${escapeHtml(sampleNames[i])}</div>`).join('')}</div></div>`;
@@ -1542,6 +1802,19 @@ function runCore(isGold) {
         pk.filter(p => p !== overallKey).forEach((p, pi) => { const pr = pearsonCorrelation(allOverall, allAttr[p]); corrHTML += `<tr><td style="text-align:left;">${escapeHtml(variableDefs[p]?.label||p)}</td><td><b>${pr.toFixed(3)}</b></td><td>${Math.abs(pr)>=0.7?'Kuat':Math.abs(pr)>=0.4?'Sedang':'Lemah'}</td></tr>`; });
         corrHTML += '</table>';
         addOutputSection('📈 Korelasi dengan ' + escapeHtml(overallLabel), corrHTML, true);
+    }
+
+    // ===== NEW: CROSSTAB WITH CORRELATION & SOMERS' D (Hedonic only) =====
+    if (AppConfig.testMode === TestMode.HEDONIK) {
+        const crosstabHTML = generateCrosstabOutput();
+        if (crosstabHTML) {
+            const od = document.getElementById('outputContent');
+            const section = document.createElement('div');
+            section.innerHTML = crosstabHTML;
+            while (section.firstChild) {
+                od.appendChild(section.firstChild);
+            }
+        }
     }
 
     lastAnalysisResults = { anovaResults, friedResults, sigResults, analysisMode: AppConfig.testMode };
@@ -1610,7 +1883,7 @@ function runCore(isGold) {
     concHTML += `<li><b>Quality Control:</b> Lakukan monitoring berkala untuk menjaga konsistensi atribut kunci.</li>`;
     if (!isGold) concHTML += `<li><b>Analisis Lanjutan:</b> Disarankan menjalankan <b>Analisis Profesional</b> untuk mendapatkan uji normalitas, homogenitas, Friedman, dan Duncan yang lebih komprehensif.</li>`;
     concHTML += `</ol>`;
-    concHTML += `<p style="margin-top:15px;"><em>${modelName} — WebSPSS v2.6. Mode: <b>${modeLabel}</b>. ${isGold?'SNI ISO 4121:2009 compliant.':''}</em></p></div>`;
+    concHTML += `<p style="margin-top:15px;"><em>${modelName} — WebSPSS v2.7. Mode: <b>${modeLabel}</b>. ${isGold?'SNI ISO 4121:2009 compliant.':''}</em></p></div>`;
     addOutputSection('📝 Kesimpulan & Rekomendasi', concHTML, isGold);
 }
 
@@ -1638,7 +1911,7 @@ function init() {
     document.getElementById('editorArea').focus();
 }
 init();
-updateStatus(`v2.6 | Mode: ${getModeLabel()} | Duncan SPSS-Style | Dynamic Target`);
+updateStatus(`v2.7 | Mode: ${getModeLabel()} | Duncan SPSS-Style | Crosstab + Somers' D`);
 </script>
 </body>
 </html>
