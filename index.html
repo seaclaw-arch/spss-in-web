@@ -373,58 +373,69 @@ function generateT2BSummaryTableForSample(sampleIndex) {
     if (totalResponden === 0) return '';
     
     const sampleLabel = sampleNames[sampleIndex - 1] || `Sampel ${String.fromCharCode(64 + sampleIndex)}`;
+    const scale = getActiveScale();
+    const threshold = scale.threshold;
     
-    // 🔧 FUNGSI UNTUK GENERATE KETERANGAN DINAMIS (TIDAK DIUBAH)
-    function generateDynamicKeterangan(sensoryAttr, targetAttr, t2bPercent, sampleData) {
-        const scale = getActiveScale();
+    // 🔧 FUNGSI KETERANGAN DINAMIS — sekarang menerima jointT2BPercent (dari total)
+    function generateDynamicKeterangan(sensoryAttr, targetAttr, jointT2BPercent, sampleData) {
         const sensoryScores = sampleData.map(row => parseFloat(row[sensoryAttr]) || 0);
-        const targetScores = sampleData.map(row => parseFloat(row[targetAttr]) || 0);
+        const targetScores  = sampleData.map(row => parseFloat(row[targetAttr]) || 0);
         
         const avgSensory = sensoryScores.reduce((a,b) => a+b, 0) / sensoryScores.length;
-        const avgTarget = targetScores.reduce((a,b) => a+b, 0) / targetScores.length;
+        const avgTarget  = targetScores.reduce((a,b) => a+b, 0) / targetScores.length;
         
-        const sukaSensory = sensoryScores.filter(s => s >= scale.threshold).length;
-        const sukaTarget = targetScores.filter(s => s >= scale.threshold).length;
+        const total = sensoryScores.length;
+        const sukaSensory = sensoryScores.filter(s => s >= threshold).length;
+        const sukaTarget  = targetScores.filter(s => s >= threshold).length;
         
-        const percentSensory = (sukaSensory / sensoryScores.length * 100);
-        const percentTarget = (sukaTarget / targetScores.length * 100);
+        const t2bSensory = (sukaSensory / total) * 100;
+        const t2bTarget  = (sukaTarget / total) * 100;
+        
+        const sensoryLabel = variableDefs[sensoryAttr]?.label || sensoryAttr;
+        const targetLabel  = variableDefs[targetAttr]?.label || targetAttr;
         
         let keterangan = [];
         
-        if (t2bPercent >= 70) {
-            keterangan.push(`${t2bPercent.toFixed(0)}% panelis yang menyukai ${variableDefs[sensoryAttr]?.label || sensoryAttr} juga menyukai ${variableDefs[targetAttr]?.label || targetAttr} - menunjukkan konsistensi yang sangat baik`);
-        } else if (t2bPercent >= 50) {
-            keterangan.push(`${t2bPercent.toFixed(0)}% panelis yang menyukai ${variableDefs[sensoryAttr]?.label || sensoryAttr} juga menyukai ${variableDefs[targetAttr]?.label || targetAttr} - menunjukkan konsistensi yang cukup baik`);
+        // Poin 1: Joint T2B
+        if (jointT2BPercent >= 50) {
+            keterangan.push(`${jointT2BPercent.toFixed(0)}% panelis menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - konsistensi sangat baik`);
+        } else if (jointT2BPercent >= 30) {
+            keterangan.push(`${jointT2BPercent.toFixed(0)}% panelis menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - konsistensi cukup baik`);
         } else {
-            keterangan.push(`Hanya ${t2bPercent.toFixed(0)}% panelis yang menyukai ${variableDefs[sensoryAttr]?.label || sensoryAttr} juga menyukai ${variableDefs[targetAttr]?.label || targetAttr} - perlu perhatian`);
+            keterangan.push(`Hanya ${jointT2BPercent.toFixed(0)}% panelis yang menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - perlu perhatian`);
         }
         
-        const diff = t2bPercent - percentTarget;
+        // Poin 2: Perbandingan Joint T2B dengan T2B target (sebagai benchmark)
+        const diff = jointT2BPercent - t2bTarget;
         if (diff > 10) {
-            keterangan.push(`T2B lebih tinggi ${diff.toFixed(1)}% dari rata-rata ${variableDefs[targetAttr]?.label || targetAttr} (${percentTarget.toFixed(1)}%) - atribut ini menjadi driver positif`);
+            keterangan.push(`Joint T2B lebih tinggi ${diff.toFixed(1)}% dari T2B ${targetLabel} (${t2bTarget.toFixed(1)}%) - atribut ini menjadi driver positif`);
         } else if (diff < -10) {
-            keterangan.push(`T2B lebih rendah ${Math.abs(diff).toFixed(1)}% dari rata-rata ${variableDefs[targetAttr]?.label || targetAttr} (${percentTarget.toFixed(1)}%) - ada gap yang perlu dijembatani`);
+            keterangan.push(`Joint T2B lebih rendah ${Math.abs(diff).toFixed(1)}% dari T2B ${targetLabel} (${t2bTarget.toFixed(1)}%) - ada gap yang perlu dijembatani`);
         } else {
-            keterangan.push(`T2B sejalan dengan rata-rata ${variableDefs[targetAttr]?.label || targetAttr} (${percentTarget.toFixed(1)}%)`);
+            keterangan.push(`Joint T2B sejalan dengan T2B ${targetLabel} (${t2bTarget.toFixed(1)}%)`);
         }
         
+        // Poin 3: Rata-rata skor sensory
         if (avgSensory >= 4.0) {
-            keterangan.push(`Rata-rata skor ${variableDefs[sensoryAttr]?.label || sensoryAttr} sangat baik (${avgSensory.toFixed(2)})`);
+            keterangan.push(`Rata-rata skor ${sensoryLabel} sangat baik (${avgSensory.toFixed(2)})`);
         } else if (avgSensory >= 3.0) {
-            keterangan.push(`Rata-rata skor ${variableDefs[sensoryAttr]?.label || sensoryAttr} cukup baik (${avgSensory.toFixed(2)})`);
+            keterangan.push(`Rata-rata skor ${sensoryLabel} cukup baik (${avgSensory.toFixed(2)})`);
         } else {
-            keterangan.push(`Rata-rata skor ${variableDefs[sensoryAttr]?.label || sensoryAttr} perlu ditingkatkan (${avgSensory.toFixed(2)})`);
+            keterangan.push(`Rata-rata skor ${sensoryLabel} perlu ditingkatkan (${avgSensory.toFixed(2)})`);
         }
         
         return keterangan;
     }
     
+    // ---------- MEMBANGUN HTML ----------
     let html = `<div class="output-section">`;
     html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel Silang T2B — ${escapeHtml(sampleLabel)}</div>`;
     html += `<div class="collapsible-content expanded" style="padding:10px;">`;
-    html += `<p style="font-size:10px;color:#666;margin-bottom:10px;">Panelis dengan skor ≥ ${getActiveScale().threshold} (Suka/Sangat Suka) pada sampel ini.</p>`;
+    html += `<p style="font-size:10px;color:#666;margin-bottom:10px;">Panelis dengan skor ≥ ${threshold} (Suka/Sangat Suka) pada <b>kedua atribut</b>, dihitung dari <b>total ${totalResponden} panelis</b>.</p>`;
+    
     html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
     
+    // Header
     html += `<tr style="background-color:#f2f2f2;">`;
     html += `<th style="border:1px solid #ccc; padding:6px;">Atribut Sensoris</th>`;
     targetAttrs.forEach(target => {
@@ -433,45 +444,43 @@ function generateT2BSummaryTableForSample(sampleIndex) {
     html += `<th style="border:1px solid #ccc; padding:6px; text-align:left; min-width:250px;">Keterangan Dinamis</th>`;
     html += `</tr>`;
     
+    // Baris data
     sensoryAttrs.forEach(sensory => {
         let labelSensory = variableDefs[sensory]?.label || sensory;
         html += `<tr>`;
         html += `<td style="border:1px solid #ccc; padding:6px; font-weight:bold; background-color:#fafafa;">${labelSensory}</td>`;
         
-        targetAttrs.forEach(target => {
-            // 🔧 PERBAIKAN: Hitung jumlah panelis yang suka sensory DAN target (joint)
+        // Untuk keterangan nanti kita ambil joint T2B dengan target pertama
+        let jointForKeterangan = 0;
+        const firstTarget = targetAttrs[0];
+        
+        targetAttrs.forEach((target, idx) => {
+            // Hitung joint: panelis yang nilai sensory & target >= threshold
             let countBoth = sampleData.filter(row => {
                 let valS = parseFloat(row[sensory]);
                 let valT = parseFloat(row[target]);
-                return (!isNaN(valS) && !isNaN(valT) && valS >= getActiveScale().threshold && valT >= getActiveScale().threshold);
+                return (!isNaN(valS) && !isNaN(valT) && valS >= threshold && valT >= threshold);
             }).length;
             
-            // 🔧 PERBAIKAN: Bagi dengan TOTAL panelis (standar T2B)
-            let persentaseT2B = (countBoth / totalResponden) * 100;
+            // Persentase joint T2B terhadap total panelis
+            let jointT2BPercent = (countBoth / totalResponden) * 100;
             
-            let cellClass = persentaseT2B >= 50 ? 'sig-yes' : (persentaseT2B >= 30 ? 'sig-no' : 'normal-no');
+            // Simpan untuk keterangan (target pertama)
+            if (idx === 0) {
+                jointForKeterangan = jointT2BPercent;
+            }
+            
+            // Warna sel berdasarkan nilai
+            let cellClass = jointT2BPercent >= 50 ? 'sig-yes' : (jointT2BPercent >= 30 ? 'sig-no' : 'normal-no');
             
             html += `<td style="border:1px solid #ccc; padding:6px; text-align:center;" class="${cellClass}">`;
-            html += `<b>${persentaseT2B.toFixed(1)}%</b>`;
-            // 🔧 PERBAIKAN: Menampilkan (joint / total) agar jelas sumber angkanya
+            html += `<b>${jointT2BPercent.toFixed(1)}%</b>`;
             html += `<br><small style="font-size:9px;">(${countBoth}/${totalResponden})</small>`;
             html += `</td>`;
         });
         
-        // Bagian keterangan tetap menggunakan target pertama (tidak diubah)
-        let keteranganList = [];
-        if (targetAttrs.length > 0) {
-            const firstTarget = targetAttrs[0];
-            // Untuk keterangan, kita gunakan lagi persentase dari total (sama seperti di atas)
-            let countBoth = sampleData.filter(row => {
-                let valS = parseFloat(row[sensory]);
-                let valT = parseFloat(row[firstTarget]);
-                return (!isNaN(valS) && !isNaN(valT) && valS >= getActiveScale().threshold && valT >= getActiveScale().threshold);
-            }).length;
-            let persentaseT2B = (countBoth / totalResponden) * 100;
-            
-            keteranganList = generateDynamicKeterangan(sensory, firstTarget, persentaseT2B, sampleData);
-        }
+        // Keterangan dinamis menggunakan joint T2B dengan target pertama
+        let keteranganList = generateDynamicKeterangan(sensory, firstTarget, jointForKeterangan, sampleData);
         
         html += `<td style="border:1px solid #ccc; padding:6px; text-align:left; font-size:10px; color:#333; vertical-align:top;">`;
         html += `<ol style="margin:0; padding-left:15px;">`;
@@ -486,7 +495,8 @@ function generateT2BSummaryTableForSample(sampleIndex) {
     
     html += `</table>`;
     html += `<div class="note-box" style="margin-top:8px; font-size:10px;">`;
-    html += `<b>💡 Cara Membaca:</b> Persentase T2B menunjukkan proporsi panelis yang memberi skor ≥${getActiveScale().threshold} pada kedua atribut (sensory & target) dari <b>total ${totalResponden} panelis</b>. Keterangan disesuaikan secara otomatis berdasarkan data aktual.`;
+    html += `<b>💡 Cara Membaca:</b> Persentase menunjukkan proporsi <b>dari total panelis</b> yang memberikan skor ≥${threshold} pada kedua atribut (sensory dan target).`;
+    html += ` Contoh: 45.0% berarti 45 dari 100 panelis (atau proporsinya) menilai tinggi kedua atribut tersebut.`;
     html += `</div>`;
     html += `</div>`;
     html += `</div>`;
