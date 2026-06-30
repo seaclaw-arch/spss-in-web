@@ -361,73 +361,58 @@ function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&l
 function escapeAttr(s) { return escapeHtml(String(s)); }
 function getCellRef(row, col) { let colStr = '', c = col; do { colStr = String.fromCharCode(65 + (c % 26)) + colStr; c = Math.floor(c / 26) - 1; } while (c >= 0); return colStr + (row + 1); }
 function updateCellNameBox() { const refEl = document.getElementById('cellRef'); const contentEl = document.getElementById('cellContent'); const modeEl = document.getElementById('modeBadge'); if (!refEl || !contentEl || !modeEl) return; refEl.textContent = getCellRef(activeCell.row, activeCell.col); const colName = dataColumns[activeCell.col]; const value = dataRows[activeCell.row]?.[colName]; contentEl.textContent = (value !== undefined && value !== null && value !== '') ? String(value) : '(kosong)'; if (editMode) { modeEl.textContent = 'EDIT'; modeEl.className = 'mode-badge edit'; } else { modeEl.textContent = 'SELECT'; modeEl.className = 'mode-badge select'; } }
-// 🔧 FUNGSI T2B YANG DIPERBAIKI - Sesuai Rumus Standar
+// ==================== 🔧 FUNGSI T2B YANG DIPERBAIKI ====================
 function generateT2BSummaryTableForSample(sampleIndex) {
-// Hanya berjalan di mode Hedonik
 if (AppConfig.testMode !== TestMode.HEDONIK) return '';
-const sensoryAttrs = getActiveSensoryAttrs();   // Baris: Penampilan, Aroma, ...
-const targetAttrs = getActiveTargetAttrs();     // Kolom: Overall Liking, Recommended, Purchase Intent
+const sensoryAttrs = getActiveSensoryAttrs();
+const targetAttrs = getActiveTargetAttrs();
 if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
-// Ambil data khusus sampel ini
 const sampleData = getSampleData(sampleIndex);
 const totalResponden = sampleData.length;
 if (totalResponden === 0) return '';
 const sampleLabel = sampleNames[sampleIndex - 1] || `Sampel ${String.fromCharCode(64 + sampleIndex)}`;
-// Mulai membangun HTML
-let html = `<div class="output-section">`;
-// Judul bisa diklik (collapse/expand)
-html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel T2B (Top 2 Box) — ${escapeHtml(sampleLabel)}</div>`;
-html += `<div class="collapsible-content expanded" style="padding:10px;">`; // default terbuka
-html += `<p style="font-size:10px;color:#666;margin-bottom:10px;"><b>Rumus T2B:</b> T2B = (Jumlah Responden T2 / Total Responden) × 100%<br>
-<b>T2 (Top 2 Box):</b> Skor 4 (Agak Suka) dan 5 (Sangat Suka) pada skala Likert 5 poin.</p>`;
-html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
-// Header kolom: Atribut + semua target + Keterangan
-html += `<tr style="background-color:#1a3a5c; color:white;">`;
-html += `<th style="border:1px solid #ccc; padding:8px;">Atribut</th>`;
-targetAttrs.forEach(target => {
-html += `<th style="border:1px solid #ccc; padding:8px; width:12%;">${variableDefs[target]?.label || target}</th>`;
-});
-html += `<th style="border:1px solid #ccc; padding:8px; text-align:left; width:35%;">Keterangan</th>`;
-html += `</tr>`;
-// Baris untuk setiap atribut sensoris
-sensoryAttrs.forEach(sensory => {
-let labelSensory = variableDefs[sensory]?.label || sensory;
-html += `<tr>`;
-html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#f5f5f5;">${labelSensory}</td>`;
-// Hitung persentase T2B untuk setiap target
-targetAttrs.forEach(target => {
-// 🔧 PERBAIKAN: Hitung T2B sesuai rumus standar
-// T2B = (Jumlah responden dengan skor ≥ 4 pada atribut target) / (Total responden) × 100%
-let jumlahRespondenT2 = sampleData.filter(row => parseFloat(row[target]) >= 4).length;
-let persentaseT2B = (jumlahRespondenT2 / totalResponden) * 100;
-html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; ${persentaseT2B >= 80 ? 'background:#d4edda;' : (persentaseT2B >= 60 ? 'background:#fff3cd;' : 'background:#f8d7da;')}"><b>${persentaseT2B.toFixed(1)}%</b><br><small>(${jumlahRespondenT2}/${totalResponden})</small></td>`;
-});
-// 🔧 KETERANGAN DINAMIS - Berdasarkan hasil perhitungan
-let teksKet = generateDynamicKeterangan(sampleData, sensory, targetAttrs, totalResponden);
-html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${teksKet}</td>`;
-html += `</tr>`;
-});
-// Tambahkan baris ringkasan untuk atribut target
-html += `<tr style="background-color:#e3f2fd; font-weight:bold;">`;
-html += `<td style="border:1px solid #ccc; padding:8px;">🎯 Rata-rata T2B Target</td>`;
-targetAttrs.forEach(target => {
-let jumlahRespondenT2 = sampleData.filter(row => parseFloat(row[target]) >= 4).length;
-let persentaseT2B = (jumlahRespondenT2 / totalResponden) * 100;
-html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#d4edda;">${persentaseT2B.toFixed(1)}%</td>`;
-});
-html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333;">Persentase panelis yang memberi skor 4-5 (Suka/Sangat Suka)</td>`;
-html += `</tr>`;
-html += `</table>`;
-html += `<div class="note-box" style="margin-top:8px; font-size:10px;">`;
-html += `<b>💡 Interpretasi T2B:</b><br>`;
-html += `• <b>T2B ≥ 80%:</b> Sangat Baik - Mayoritas panelis menyukai atribut ini<br>`;
-html += `• <b>T2B 60-79%:</b> Baik - Sebagian besar panelis menyukai<br>`;
-html += `• <b>T2B 40-59%:</b> Cukup - Perlu peningkatan<br>`;
-html += `• <b>T2B < 40%:</b> Kurang - Memerlukan perbaikan signifikan<br>`;
-html += `<br><b>📊 Cara Membaca:</b> Persentase menunjukkan proporsi panelis yang memberi skor 4 (Agak Suka) atau 5 (Sangat Suka) pada setiap atribut target dari total responden yang menguji sampel ini.</div>`;
-html += `</div>`;
-html += `</div>`;
-return html;
+const scale = getActiveScale();
+const threshold = scale.threshold;
+// 🔧 FUNGSI KETERANGAN DINAMIS — sekarang menerima jointT2BPercent (dari total)
+function generateDynamicKeterangan(sensoryAttr, targetAttr, jointT2BPercent, sampleData) {
+const sensoryScores = sampleData.map(row => parseFloat(row[sensoryAttr]) || 0);
+const targetScores  = sampleData.map(row => parseFloat(row[targetAttr]) || 0);
+const avgSensory = sensoryScores.reduce((a,b) => a+b, 0) / sensoryScores.length;
+const avgTarget  = targetScores.reduce((a,b) => a+b, 0) / targetScores.length;
+const total = sensoryScores.length;
+const sukaSensory = sensoryScores.filter(s => s >= threshold).length;
+const sukaTarget  = targetScores.filter(s => s >= threshold).length;
+const t2bSensory = (sukaSensory / total) * 100;
+const t2bTarget  = (sukaTarget / total) * 100;
+const sensoryLabel = variableDefs[sensoryAttr]?.label || sensoryAttr;
+const targetLabel  = variableDefs[targetAttr]?.label || targetAttr;
+let keterangan = [];
+// Poin 1: Joint T2B (Menggunakan Konstanta)
+if (jointT2BPercent >= T2B_HIGH_THRESHOLD) {
+keterangan.push(`${jointT2BPercent.toFixed(0)}% panelis menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - konsistensi sangat baik`);
+} else if (jointT2BPercent >= T2B_MED_THRESHOLD) {
+keterangan.push(`${jointT2BPercent.toFixed(0)}% panelis menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - konsistensi cukup baik`);
+} else {
+keterangan.push(`Hanya ${jointT2BPercent.toFixed(0)}% panelis yang menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - perlu perhatian`);
+}
+// Poin 2: Perbandingan Joint T2B dengan T2B target (sebagai benchmark)
+const diff = jointT2BPercent - t2bTarget;
+if (diff > 10) {
+keterangan.push(`Joint T2B lebih tinggi ${diff.toFixed(1)}% dari T2B ${targetLabel} (${t2bTarget.toFixed(1)}%) - atribut ini menjadi driver positif`);
+} else if (diff < -10) {
+keterangan.push(`Joint T2B lebih rendah ${Math.abs(diff).toFixed(1)}% dari T2B ${targetLabel} (${t2bTarget.toFixed(1)}%) - ada gap yang perlu dijembatani`);
+} else {
+keterangan.push(`Joint T2B sejalan dengan T2B ${targetLabel} (${t2bTarget.toFixed(1)}%)`);
+}
+// Poin 3: Rata-rata skor sensory
+if (avgSensory >= 4.0) {
+keterangan.push(`Rata-rata skor ${sensoryLabel} sangat baik (${avgSensory.toFixed(2)})`);
+} else if (avgSensory >= 3.0) {
+keterangan.push(`Rata-rata skor ${sensoryLabel} cukup baik (${avgSensory.toFixed(2)})`);
+} else {
+keterangan.push(`Rata-rata skor ${sensoryLabel} perlu ditingkatkan (${avgSensory.toFixed(2)})`);
+}
+return keterangan;
 }
 // ---------- MEMBANGUN HTML ----------
 let html = `<div class="output-section">`;
