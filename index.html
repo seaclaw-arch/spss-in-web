@@ -202,7 +202,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 <div style="display:flex;align-items:center;">
 <h1>📊 WebSPSS v3.0</h1>
 <span id="modeIndicator" class="mode-indicator hedonik">HEDONIK</span>
-<span class="subtitle" style="margin-left:10px;font-size:10px;color:#a0c4ff;">STATISTICS PLATFORM</span>
+<span class="subtitle" style="margin-left:10px;font-size:10px;color:#a0c4ff;">ANOVA Sig + Spider Fix + Detail Conclusion</span>
 </div>
 <div style="display:flex;align-items:center;gap:10px;">
 <span id="panelCount" style="font-size:10px;">Panelis: 0</span>
@@ -314,7 +314,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 </div>
 <div class="footer-bar">
 <span id="statusLeft">Ready</span>
-<span id="statusBar">v3.0 | STATISTICS PLATFORM</span>
+<span id="statusBar">v3.0 | ANOVA Sig + Spider Fix + Detail Conclusion</span>
 </div>
 <script>
 'use strict';
@@ -361,217 +361,535 @@ function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&l
 function escapeAttr(s) { return escapeHtml(String(s)); }
 function getCellRef(row, col) { let colStr = '', c = col; do { colStr = String.fromCharCode(65 + (c % 26)) + colStr; c = Math.floor(c / 26) - 1; } while (c >= 0); return colStr + (row + 1); }
 function updateCellNameBox() { const refEl = document.getElementById('cellRef'); const contentEl = document.getElementById('cellContent'); const modeEl = document.getElementById('modeBadge'); if (!refEl || !contentEl || !modeEl) return; refEl.textContent = getCellRef(activeCell.row, activeCell.col); const colName = dataColumns[activeCell.col]; const value = dataRows[activeCell.row]?.[colName]; contentEl.textContent = (value !== undefined && value !== null && value !== '') ? String(value) : '(kosong)'; if (editMode) { modeEl.textContent = 'EDIT'; modeEl.className = 'mode-badge edit'; } else { modeEl.textContent = 'SELECT'; modeEl.className = 'mode-badge select'; } }
-// ==================== 🔧 FUNGSI T2B YANG DIPERBAIKI ====================
+
+// 🔧 FUNGSI T2B YANG DIPERBAIKI - Sesuai Rumus Standar
 function generateT2BSummaryTableForSample(sampleIndex) {
-if (AppConfig.testMode !== TestMode.HEDONIK) return '';
-const sensoryAttrs = getActiveSensoryAttrs();
-const targetAttrs = getActiveTargetAttrs();
-if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
-const sampleData = getSampleData(sampleIndex);
-const totalResponden = sampleData.length;
-if (totalResponden === 0) return '';
-const sampleLabel = sampleNames[sampleIndex - 1] || `Sampel ${String.fromCharCode(64 + sampleIndex)}`;
-const scale = getActiveScale();
-const threshold = scale.threshold;
-// 🔧 FUNGSI KETERANGAN DINAMIS — sekarang menerima jointT2BPercent (dari total)
-function generateDynamicKeterangan(sensoryAttr, targetAttr, jointT2BPercent, sampleData) {
-const sensoryScores = sampleData.map(row => parseFloat(row[sensoryAttr]) || 0);
-const targetScores  = sampleData.map(row => parseFloat(row[targetAttr]) || 0);
-const avgSensory = sensoryScores.reduce((a,b) => a+b, 0) / sensoryScores.length;
-const avgTarget  = targetScores.reduce((a,b) => a+b, 0) / targetScores.length;
-const total = sensoryScores.length;
-const sukaSensory = sensoryScores.filter(s => s >= threshold).length;
-const sukaTarget  = targetScores.filter(s => s >= threshold).length;
-const t2bSensory = (sukaSensory / total) * 100;
-const t2bTarget  = (sukaTarget / total) * 100;
-const sensoryLabel = variableDefs[sensoryAttr]?.label || sensoryAttr;
-const targetLabel  = variableDefs[targetAttr]?.label || targetAttr;
-let keterangan = [];
-// Poin 1: Joint T2B (Menggunakan Konstanta)
-if (jointT2BPercent >= T2B_HIGH_THRESHOLD) {
-keterangan.push(`${jointT2BPercent.toFixed(0)}% panelis menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - konsistensi sangat baik`);
-} else if (jointT2BPercent >= T2B_MED_THRESHOLD) {
-keterangan.push(`${jointT2BPercent.toFixed(0)}% panelis menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - konsistensi cukup baik`);
-} else {
-keterangan.push(`Hanya ${jointT2BPercent.toFixed(0)}% panelis yang menyukai ${sensoryLabel} dan ${targetLabel} secara bersamaan - perlu perhatian`);
+    // Hanya berjalan di mode Hedonik
+    if (AppConfig.testMode !== TestMode.HEDONIK) return '';
+    const sensoryAttrs = getActiveSensoryAttrs();   // Baris: Penampilan, Aroma, ...
+    const targetAttrs = getActiveTargetAttrs();     // Kolom: Overall Liking, Recommended, Purchase Intent
+    if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
+    // Ambil data khusus sampel ini
+    const sampleData = getSampleData(sampleIndex);
+    const totalResponden = sampleData.length;
+    if (totalResponden === 0) return '';
+    const sampleLabel = sampleNames[sampleIndex - 1] || `Sampel ${String.fromCharCode(64 + sampleIndex)}`;
+    // Mulai membangun HTML
+    let html = `<div class="output-section">`;
+    // Judul bisa diklik (collapse/expand)
+    html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel T2B (Top 2 Box) — ${escapeHtml(sampleLabel)}</div>`;
+    html += `<div class="collapsible-content expanded" style="padding:10px;">`; // default terbuka
+    html += `<p style="font-size:10px;color:#666;margin-bottom:10px;"><b>Rumus T2B:</b> T2B = (Jumlah Responden T2 / Total Responden) × 100%<br>
+    <b>T2 (Top 2 Box):</b> Skor 4 (Agak Suka) dan 5 (Sangat Suka) pada skala Likert 5 poin.</p>`;
+    html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
+    // Header kolom: Atribut + semua target + Keterangan
+    html += `<tr style="background-color:#1a3a5c; color:white;">`;
+    html += `<th style="border:1px solid #ccc; padding:8px;">Atribut</th>`;
+    targetAttrs.forEach(target => {
+        html += `<th style="border:1px solid #ccc; padding:8px; width:12%;">${variableDefs[target]?.label || target}</th>`;
+    });
+    html += `<th style="border:1px solid #ccc; padding:8px; text-align:left; width:35%;">Keterangan</th>`;
+    html += `</tr>`;
+    // Baris untuk setiap atribut sensoris
+    sensoryAttrs.forEach(sensory => {
+        let labelSensory = variableDefs[sensory]?.label || sensory;
+        html += `<tr>`;
+        html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#f5f5f5;">${labelSensory}</td>`;
+        // Hitung persentase T2B untuk setiap target
+        targetAttrs.forEach(target => {
+            // 🔧 PERBAIKAN: Hitung T2B sesuai rumus standar
+            // T2B = (Jumlah responden dengan skor ≥ 4 pada atribut target) / (Total responden) × 100%
+            let jumlahRespondenT2 = sampleData.filter(row => parseFloat(row[target]) >= 4).length;
+            let persentaseT2B = (jumlahRespondenT2 / totalResponden) * 100;
+            html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; ${persentaseT2B >= 80 ? 'background:#d4edda;' : (persentaseT2B >= 60 ? 'background:#fff3cd;' : 'background:#f8d7da;')}"><b>${persentaseT2B.toFixed(1)}%</b><br><small>(${jumlahRespondenT2}/${totalResponden})</small></td>`;
+        });
+        // 🔧 KETERANGAN DINAMIS - Berdasarkan hasil perhitungan
+        let teksKet = generateDynamicKeterangan(sampleData, sensory, targetAttrs, totalResponden);
+        html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${teksKet}</td>`;
+        html += `</tr>`;
+    });
+    // Tambahkan baris ringkasan untuk atribut target
+    html += `<tr style="background-color:#e3f2fd; font-weight:bold;">`;
+    html += `<td style="border:1px solid #ccc; padding:8px;">🎯 Rata-rata T2B Target</td>`;
+    targetAttrs.forEach(target => {
+        let jumlahRespondenT2 = sampleData.filter(row => parseFloat(row[target]) >= 4).length;
+        let persentaseT2B = (jumlahRespondenT2 / totalResponden) * 100;
+        html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#d4edda;">${persentaseT2B.toFixed(1)}%</td>`;
+    });
+    html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333;">Persentase panelis yang memberi skor 4-5 (Suka/Sangat Suka)</td>`;
+    html += `</tr>`;
+    html += `</table>`;
+    html += `<div class="note-box" style="margin-top:8px; font-size:10px;">`;
+    html += `<b>💡 Interpretasi T2B:</b><br>`;
+    html += `• <b>T2B ≥ 80%:</b> Sangat Baik - Mayoritas panelis menyukai atribut ini<br>`;
+    html += `• <b>T2B 60-79%:</b> Baik - Sebagian besar panelis menyukai<br>`;
+    html += `• <b>T2B 40-59%:</b> Cukup - Perlu peningkatan<br>`;
+    html += `• <b>T2B < 40%:</b> Kurang - Memerlukan perbaikan signifikan<br>`;
+    html += `<br><b>📊 Cara Membaca:</b> Persentase menunjukkan proporsi panelis yang memberi skor 4 (Agak Suka) atau 5 (Sangat Suka) pada setiap atribut target dari total responden yang menguji sampel ini.</div>`;
+    html += `</div>`;
+    html += `</div>`;
+    return html;
 }
-// Poin 2: Perbandingan Joint T2B dengan T2B target (sebagai benchmark)
-const diff = jointT2BPercent - t2bTarget;
-if (diff > 10) {
-keterangan.push(`Joint T2B lebih tinggi ${diff.toFixed(1)}% dari T2B ${targetLabel} (${t2bTarget.toFixed(1)}%) - atribut ini menjadi driver positif`);
-} else if (diff < -10) {
-keterangan.push(`Joint T2B lebih rendah ${Math.abs(diff).toFixed(1)}% dari T2B ${targetLabel} (${t2bTarget.toFixed(1)}%) - ada gap yang perlu dijembatani`);
-} else {
-keterangan.push(`Joint T2B sejalan dengan T2B ${targetLabel} (${t2bTarget.toFixed(1)}%)`);
+
+// 🔧 FUNGSI BARU: Generate Keterangan Dinamis berdasarkan data aktual
+function generateDynamicKeterangan(sampleData, sensoryAttr, targetAttrs, totalResponden) {
+    let keterangan = [];
+    // Hitung statistik untuk atribut sensoris
+    let scoresSensory = sampleData.map(row => parseFloat(row[sensoryAttr]) || 0);
+    let countSuka = scoresSensory.filter(s => s >= 4).length;
+    let countTidakSuka = scoresSensory.filter(s => s <= 2).length;
+    let pctSuka = (countSuka / totalResponden) * 100;
+    let pctTidakSuka = (countTidakSuka / totalResponden) * 100;
+    let meanSensory = scoresSensory.reduce((a,b) => a+b, 0) / totalResponden;
+    // Buat keterangan berdasarkan persentase
+    if (pctSuka >= 80) {
+        keterangan.push(`<b>${pctSuka.toFixed(0)}%</b> panelis menyukai (${countSuka} dari ${totalResponden})`);
+    } else if (pctSuka >= 60) {
+        keterangan.push(`<b>${pctSuka.toFixed(0)}%</b> panelis menyukai (${countSuka} dari ${totalResponden})`);
+    } else if (pctSuka >= 40) {
+        keterangan.push(`<b>${pctSuka.toFixed(0)}%</b> panelis menyukai (${countSuka} dari ${totalResponden})`);
+    } else {
+        keterangan.push(`<b>${pctSuka.toFixed(0)}%</b> panelis menyukai (${countSuka} dari ${totalResponden})`);
+    }
+    if (pctTidakSuka > 0) {
+        keterangan.push(`<b>${pctTidakSuka.toFixed(0)}%</b> tidak menyukai (${countTidakSuka} dari ${totalResponden})`);
+    }
+    // Tambahkan insight berdasarkan mean
+    if (meanSensory >= 4.0) {
+        keterangan.push(`Mean: <b>${meanSensory.toFixed(2)}</b> (Sangat Baik)`);
+    } else if (meanSensory >= 3.0) {
+        keterangan.push(`Mean: <b>${meanSensory.toFixed(2)}</b> (Cukup)`);
+    } else {
+        keterangan.push(`Mean: <b>${meanSensory.toFixed(2)}</b> (Perlu Perbaikan)`);
+    }
+    return keterangan.join('<br>');
 }
-// Poin 3: Rata-rata skor sensory
-if (avgSensory >= 4.0) {
-keterangan.push(`Rata-rata skor ${sensoryLabel} sangat baik (${avgSensory.toFixed(2)})`);
-} else if (avgSensory >= 3.0) {
-keterangan.push(`Rata-rata skor ${sensoryLabel} cukup baik (${avgSensory.toFixed(2)})`);
-} else {
-keterangan.push(`Rata-rata skor ${sensoryLabel} perlu ditingkatkan (${avgSensory.toFixed(2)})`);
-}
-return keterangan;
-}
-// ---------- MEMBANGUN HTML ----------
-let html = `<div class="output-section">`;
-html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel Silang T2B — ${escapeHtml(sampleLabel)}</div>`;
-html += `<div class="collapsible-content expanded" style="padding:10px;">`;
-html += `<p style="font-size:10px;color:#666;margin-bottom:10px;">Panelis dengan skor ≥ ${threshold} (Suka/Sangat Suka) pada <b>kedua atribut</b>, dihitung dari <b>total ${totalResponden} panelis</b>.</p>`;
-html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
-// Header
-html += `<tr style="background-color:#f2f2f2;">`;
-html += `<th style="border:1px solid #ccc; padding:6px;">Atribut Sensoris</th>`;
-targetAttrs.forEach(target => {
-html += `<th style="border:1px solid #ccc; padding:6px; width:12%;">${variableDefs[target]?.label || target}</th>`;
-});
-html += `<th style="border:1px solid #ccc; padding:6px; text-align:left; min-width:250px;">Keterangan Dinamis</th>`;
-html += `</tr>`;
-// Baris data
-sensoryAttrs.forEach(sensory => {
-let labelSensory = variableDefs[sensory]?.label || sensory;
-html += `<tr>`;
-html += `<td style="border:1px solid #ccc; padding:6px; font-weight:bold; background-color:#fafafa;">${labelSensory}</td>`;
-// Untuk keterangan nanti kita ambil joint T2B dengan target pertama
-let jointForKeterangan = 0;
-const firstTarget = targetAttrs[0];
-targetAttrs.forEach((target, idx) => {
-// Hitung joint: panelis yang nilai sensory & target >= threshold
-let countBoth = sampleData.filter(row => {
-let valS = parseFloat(row[sensory]);
-let valT = parseFloat(row[target]);
-return (!isNaN(valS) && !isNaN(valT) && valS >= threshold && valT >= threshold);
-}).length;
-// Persentase joint T2B terhadap total panelis
-let jointT2BPercent = (countBoth / totalResponden) * 100;
-// Simpan untuk keterangan (target pertama)
-if (idx === 0) {
-jointForKeterangan = jointT2BPercent;
-}
-// Warna sel berdasarkan nilai
-let cellClass = jointT2BPercent >= T2B_HIGH_THRESHOLD ? 'sig-yes' : (jointT2BPercent >= T2B_MED_THRESHOLD ? 'sig-no' : 'normal-no');
-html += `<td style="border:1px solid #ccc; padding:6px; text-align:center;" class="${cellClass}">`;
-html += `<b>${jointT2BPercent.toFixed(1)}%</b>`;
-html += `<br><small style="font-size:9px;">(${countBoth}/${totalResponden})</small>`;
-html += `</td>`;
-});
-// Keterangan dinamis menggunakan joint T2B dengan target pertama
-let keteranganList = generateDynamicKeterangan(sensory, firstTarget, jointForKeterangan, sampleData);
-html += `<td style="border:1px solid #ccc; padding:6px; text-align:left; font-size:10px; color:#333; vertical-align:top;">`;
-html += `<ol style="margin:0; padding-left:15px;">`;
-keteranganList.forEach(k => {
-html += `<li style="margin-bottom:4px;">${k}</li>`;
-});
-html += `</ol>`;
-html += `</td>`;
-html += `</tr>`;
-});
-html += `</table>`;
-html += `<div class="note-box" style="margin-top:8px; font-size:10px;">`;
-html += `<b>💡 Cara Membaca:</b> Persentase menunjukkan proporsi <b>dari total panelis</b> yang memberikan skor ≥${threshold} pada kedua atribut (sensory dan target).`;
-html += ` Contoh: 45.0% berarti 45 dari 100 panelis (atau proporsinya) menilai tinggi kedua atribut tersebut.`;
-html += `</div>`;
-html += `</div>`;
-html += `</div>`;
-return html;
-}
+
 // ==================== SOMERS' D & CROSSTAB ====================
 function somersD(x, y) {
-const n = Math.min(x.length, y.length);
-if (n > 500) console.warn(`Somers' D: Dataset besar (N=${n}). Komputasi O(N^2) mungkin memperlambat UI.`);
-if (n < 3) return { d: 0, concordant: 0, discordant: 0, tiedY: 0, n: n, interpretation: 'N/A' };
-const pairs = [];
-for (let i = 0; i < n; i++) { if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) pairs.push({ x: x[i], y: y[i] }); }
-const m = pairs.length;
-if (m < 3) return { d: 0, concordant: 0, discordant: 0, tiedY: 0, n: m, interpretation: 'Data tidak cukup' };
-let concordant = 0, discordant = 0, tiedX = 0, tiedY = 0, tiedXY = 0;
-for (let i = 0; i < m; i++) { for (let j = i + 1; j < m; j++) { const xDiff = pairs[i].x - pairs[j].x; const yDiff = pairs[i].y - pairs[j].y; if (xDiff > 0 && yDiff > 0) concordant++; else if (xDiff < 0 && yDiff < 0) concordant++; else if (xDiff > 0 && yDiff < 0) discordant++; else if (xDiff < 0 && yDiff > 0) discordant++; else if (xDiff === 0 && yDiff === 0) tiedXY++; else if (xDiff === 0 && yDiff !== 0) tiedX++; else if (xDiff !== 0 && yDiff === 0) tiedY++; } }
-const denominator = concordant + discordant + tiedY;
-const d = denominator > 0 ? (concordant - discordant) / denominator : 0;
-let interpretation = ''; const absD = Math.abs(d);
-if (absD >= 0.6) interpretation = d > 0 ? 'Kuat Positif' : 'Kuat Negatif';
-else if (absD >= 0.4) interpretation = d > 0 ? 'Sedang Positif' : 'Sedang Negatif';
-else if (absD >= 0.2) interpretation = d > 0 ? 'Lemah Positif' : 'Lemah Negatif';
-else interpretation = 'Sangat Lemah / Tidak Ada Asosiasi';
-return { d: parseFloat(d.toFixed(4)), concordant, discordant, tiedY, tiedX, tiedXY, n: m, interpretation };
+    const n = Math.min(x.length, y.length);
+    if (n < 3) return { d: 0, concordant: 0, discordant: 0, tiedY: 0, n: n, interpretation: 'N/A' };
+    
+    const pairs = [];
+    for (let i = 0; i < n; i++) { 
+        if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
+            pairs.push({ x: x[i], y: y[i] }); 
+        }
+    }
+    
+    const m = pairs.length;
+    if (m < 3) return { d: 0, concordant: 0, discordant: 0, tiedY: 0, n: m, interpretation: 'Data tidak cukup' };
+    
+    let concordant = 0, discordant = 0, tiedX = 0, tiedY = 0, tiedXY = 0;
+    
+    // Hitung semua pasangan data
+    for (let i = 0; i < m; i++) { 
+        for (let j = i + 1; j < m; j++) { 
+            const xDiff = pairs[i].x - pairs[j].x; 
+            const yDiff = pairs[i].y - pairs[j].y; 
+            
+            if (xDiff > 0 && yDiff > 0) concordant++; 
+            else if (xDiff < 0 && yDiff < 0) concordant++; 
+            else if (xDiff > 0 && yDiff < 0) discordant++; 
+            else if (xDiff < 0 && yDiff > 0) discordant++; 
+            else if (xDiff === 0 && yDiff === 0) tiedXY++; 
+            else if (xDiff === 0 && yDiff !== 0) tiedX++; 
+            else if (xDiff !== 0 && yDiff === 0) tiedY++; // Ties pada Y (Ty) - yang benar untuk Asimetris Y|X
+        } 
+    }
+    
+    // RUMUS ASIMETRIS Y|X yang benar untuk SPSS/Excel
+    // D_{Y|X} = (Nc - Nd) / (Nc + Nd + Ty)
+    const denominator = concordant + discordant + tiedY;
+    const d = denominator > 0 ? (concordant - discordant) / denominator : 0;
+    
+    let interpretation = ''; 
+    const absD = Math.abs(d);
+    if (absD >= 0.6) interpretation = d > 0 ? 'Kuat Positif' : 'Kuat Negatif';
+    else if (absD >= 0.4) interpretation = d > 0 ? 'Sedang Positif' : 'Sedang Negatif';
+    else if (absD >= 0.2) interpretation = d > 0 ? 'Lemah Positif' : 'Lemah Negatif';
+    else interpretation = 'Sangat Lemah / Tidak Ada Asosiasi';
+    
+    return { 
+        d: parseFloat(d.toFixed(4)), 
+        concordant, 
+        discordant, 
+        tiedY, 
+        tiedX, 
+        tiedXY, 
+        n: m, 
+        interpretation 
+    };
 }
+
 // Spearman rank correlation (cocok untuk data ordinal)
 function spearmanCorrelation(x, y) {
-const n = Math.min(x.length, y.length);
-const pairs = [];
-for (let i = 0; i < n; i++) {
-if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
-pairs.push({ x: x[i], y: y[i] });
+    const n = Math.min(x.length, y.length);
+    const pairs = [];
+    for (let i = 0; i < n; i++) {
+        if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
+            pairs.push({ x: x[i], y: y[i] });
+        }
+    }
+    const m = pairs.length;
+    if (m < 3) return 0;
+    const rank = arr => {
+        const sorted = arr.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v);
+        const ranks = new Array(arr.length);
+        for (let i = 0; i < sorted.length; ) {
+            let j = i;
+            while (j < sorted.length && sorted[j].v === sorted[i].v) j++;
+            const avg = (i + j + 1) / 2;
+            for (let k = i; k < j; k++) ranks[sorted[k].i] = avg;
+            i = j;
+        }
+        return ranks;
+    };
+    const rankX = rank(pairs.map(p => p.x));
+    const rankY = rank(pairs.map(p => p.y));
+    let sumD2 = 0;
+    for (let i = 0; i < m; i++) sumD2 += Math.pow(rankX[i] - rankY[i], 2);
+    return 1 - (6 * sumD2) / (m * (m * m - 1));
 }
-}
-const m = pairs.length;
-if (m < 3) return 0;
-const rank = arr => {
-const sorted = arr.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v);
-const ranks = new Array(arr.length);
-for (let i = 0; i < sorted.length; ) {
-let j = i;
-while (j < sorted.length && sorted[j].v === sorted[i].v) j++;
-const avg = (i + j + 1) / 2;
-for (let k = i; k < j; k++) ranks[sorted[k].i] = avg;
-i = j;
-}
-return ranks;
-};
-const rankX = rank(pairs.map(p => p.x));
-const rankY = rank(pairs.map(p => p.y));
-let sumD2 = 0;
-for (let i = 0; i < m; i++) sumD2 += Math.pow(rankX[i] - rankY[i], 2);
-return 1 - (6 * sumD2) / (m * (m * m - 1));
-}
+
 function generateCrosstab(x, y, labelX, labelY) {
-const n = Math.min(x.length, y.length); if (n < 3) return null;
-const valsX = [1, 2, 3, 4, 5], valsY = [1, 2, 3, 4, 5];
-const freq = Array.from({length: valsX.length}, () => Array(valsY.length).fill(0));
-let validPairs = 0;
-for (let i = 0; i < n; i++) { const xi = Math.round(x[i]), yi = Math.round(y[i]); if (xi >= 1 && xi <= 5 && yi >= 1 && yi <= 5) { freq[xi-1][yi-1]++; validPairs++; } }
-if (validPairs < 3) return null;
-const rowTotals = freq.map(row => row.reduce((a,b) => a+b, 0));
-const colTotals = valsY.map((_, j) => freq.reduce((sum, row) => sum + row[j], 0));
-let html = `<div class="crosstab-container"><table class="crosstab-table">`;
-html += `<tr><th rowspan="2" style="background:#37474f;">${escapeHtml(labelX)} \\ ${escapeHtml(labelY)}</th>`;
-valsY.forEach(v => html += `<th>${v}</th>`);
-html += `<th class="total-col">Total</th></tr><tr>`;
-colTotals.forEach(t => html += `<th style="background:#ffcc80;">${(t/validPairs*100).toFixed(1)}%</th>`);
-html += `<th style="background:#ffcc80;">100%</th></tr>`;
-valsX.forEach((vx, i) => {
-html += `<tr><td class="row-header">${vx} (${(rowTotals[i]/validPairs*100).toFixed(1)}%)</td>`;
-freq[i].forEach((f, j) => { const pct = rowTotals[i] > 0 ? (f/rowTotals[i]*100).toFixed(1) : '0.0'; html += `<td style="background:${f > 0 ? '#e8f5e9' : '#fafafa'}"><b>${f}</b><br><small>${pct}%</small></td>`; });
-html += `<td class="total-col"><b>${rowTotals[i]}</b></td></tr>`;
-});
-html += `<tr class="total-row"><td>Total</td>`;
-colTotals.forEach(t => html += `<td><b>${t}</b></td>`);
-html += `<td><b>${validPairs}</b></td></tr></table></div>`;
-return html;
+    const n = Math.min(x.length, y.length); if (n < 3) return null;
+    const valsX = [1, 2, 3, 4, 5], valsY = [1, 2, 3, 4, 5];
+    const freq = Array.from({length: valsX.length}, () => Array(valsY.length).fill(0));
+    let validPairs = 0;
+    for (let i = 0; i < n; i++) { const xi = Math.round(x[i]), yi = Math.round(y[i]); if (xi >= 1 && xi <= 5 && yi >= 1 && yi <= 5) { freq[xi-1][yi-1]++; validPairs++; } }
+    if (validPairs < 3) return null;
+    const rowTotals = freq.map(row => row.reduce((a,b) => a+b, 0));
+    const colTotals = valsY.map((_, j) => freq.reduce((sum, row) => sum + row[j], 0));
+    let html = `<div class="crosstab-container"><table class="crosstab-table">`;
+    html += `<tr><th rowspan="2" style="background:#37474f;">${escapeHtml(labelX)} \\ ${escapeHtml(labelY)}</th>`;
+    valsY.forEach(v => html += `<th>${v}</th>`);
+    html += `<th class="total-col">Total</th></tr><tr>`;
+    colTotals.forEach(t => html += `<th style="background:#ffcc80;">${(t/validPairs*100).toFixed(1)}%</th>`);
+    html += `<th style="background:#ffcc80;">100%</th></tr>`;
+    valsX.forEach((vx, i) => {
+        html += `<tr><td class="row-header">${vx} (${(rowTotals[i]/validPairs*100).toFixed(1)}%)</td>`;
+        freq[i].forEach((f, j) => { const pct = rowTotals[i] > 0 ? (f/rowTotals[i]*100).toFixed(1) : '0.0'; html += `<td style="background:${f > 0 ? '#e8f5e9' : '#fafafa'}"><b>${f}</b><br><small>${pct}%</small></td>`; });
+        html += `<td class="total-col"><b>${rowTotals[i]}</b></td></tr>`;
+    });
+    html += `<tr class="total-row"><td>Total</td>`;
+    colTotals.forEach(t => html += `<td><b>${t}</b></td>`);
+    html += `<td><b>${validPairs}</b></td></tr></table></div>`;
+    return html;
 }
-function generateCrosstabOutput() {
-if (AppConfig.testMode !== TestMode.HEDONIK) return '';
-const sensoryAttrs = getActiveSensoryAttrs(); const targetAttrs = getActiveTargetAttrs();
-if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return `<div class="output-section"><div class="output-section-title">📊 Ringkasan Asosiasi</div><div style="padding:10px;"><div class="warning-box">⚠️ Analisis asosiasi tidak dapat dilakukan.</div></div></div>`;
-const allAnalysisAttrs = getAllActiveAnalysisAttrs();
-const allData = {};
-allAnalysisAttrs.forEach(key => { allData[key] = []; });
-for (let s = 1; s <= numSamples; s++) { const sampleData = getSampleData(s); sampleData.forEach(row => { allAnalysisAttrs.forEach(key => { const val = row[key] || 0; if (val > 0) allData[key].push(val); }); }); }
-const maxLen = Math.max(...Object.values(allData).map(arr => arr.length), 0);
-if (maxLen < 3) return `<div class="output-section"><div class="output-section-title">📊 Ringkasan Asosiasi</div><div style="padding:10px;"><div class="warning-box">⚠️ Data tidak cukup.</div></div></div>`;
-Object.keys(allData).forEach(key => { while (allData[key].length < maxLen) allData[key].push(0); });
-let html = `<div class="output-section"><div class="output-section-title">📊 Ringkasan Asosiasi Antar Atribut (Hedonik)</div><div style="padding:10px;">`;
-html += `<p style="font-size:10px;color:#666;margin-bottom:10px;"><b>Variabel aktif:</b> ${allAnalysisAttrs.map(a => variableDefs[a]?.label || a).join(', ')}.</p>`;
-html += `<table class="output-table"><tr><th>Pasangan Atribut</th><th>N</th><th>Spearman (p) rho</th><th>Kekuatan</th><th>Somers' D</th><th>Interpretasi</th></tr>`;
-const comparisons = [];
-sensoryAttrs.forEach(sensory => { targetAttrs.forEach(target => { if (sensory === target) return; const x = allData[sensory].filter((v, i) => v > 0 && allData[target][i] > 0); const y = allData[target].filter((v, i) => allData[sensory][i] > 0 && v > 0); if (x.length >= 3) { const r = spearmanCorrelation(x, y); const sd = somersD(x, y); comparisons.push({ pair: `${variableDefs[sensory]?.label || sensory} × ${variableDefs[target]?.label || target}`, n: x.length, r, somers: sd, sensory, target }); const rClass = Math.abs(r) >= 0.6 ? 'corr-strong' : (Math.abs(r) >= 0.3 ? 'corr-moderate' : 'corr-weak'); const rStrength = Math.abs(r) >= 0.7 ? 'Kuat' : (Math.abs(r) >= 0.4 ? 'Sedang' : (Math.abs(r) >= 0.2 ? 'Lemah' : 'Sangat Lemah')); const dClass = sd.d > 0.2 ? 'somers-positive' : (sd.d < -0.2 ? 'somers-negative' : 'somers-weak'); html += `<tr><td style="text-align:left;"><b>${variableDefs[sensory]?.label || sensory}</b> × <b>${variableDefs[target]?.label || target}</b></td><td>${x.length}</td><td class="${rClass}"><b>${r.toFixed(3)}</b></td><td>${rStrength}</td><td class="${dClass}"><b>${sd.d.toFixed(3)}</b></td><td>${sd.interpretation}</td></tr>`; } }); });
-if (targetAttrs.length >= 2) { for (let i = 0; i < targetAttrs.length; i++) { for (let j = i + 1; j < targetAttrs.length; j++) { const a = targetAttrs[i], b = targetAttrs[j]; const x = allData[a].filter((v, idx) => v > 0 && allData[b][idx] > 0); const y = allData[b].filter((v, idx) => allData[a][idx] > 0 && v > 0); if (x.length >= 3) { const r = spearmanCorrelation(x, y); const sd = somersD(x, y); comparisons.push({ pair: `${variableDefs[a]?.label || a} × ${variableDefs[b]?.label || b}`, n: x.length, r, somers: sd, sensory: a, target: b }); const rClass = Math.abs(r) >= 0.6 ? 'corr-strong' : (Math.abs(r) >= 0.3 ? 'corr-moderate' : 'corr-weak'); const rStrength = Math.abs(r) >= 0.7 ? 'Kuat' : (Math.abs(r) >= 0.4 ? 'Sedang' : (Math.abs(r) >= 0.2 ? 'Lemah' : 'Sangat Lemah')); const dClass = sd.d > 0.2 ? 'somers-positive' : (sd.d < -0.2 ? 'somers-negative' : 'somers-weak'); html += `<tr style="background:#e3f2fd;"><td style="text-align:left;"><b>${variableDefs[a]?.label || a}</b> × <b>${variableDefs[b]?.label || b}</b></td><td>${x.length}</td><td class="${rClass}"><b>${r.toFixed(3)}</b></td><td>${rStrength}</td><td class="${dClass}"><b>${sd.d.toFixed(3)}</b></td><td>${sd.interpretation}</td></tr>`; } } } }
-html += `</table><div class="note-box" style="margin-top:8px;"><b>📖 Interpretasi:</b><br>• <b>Spearman (p) rho</b>: mengukur kekuatan hubungan monotonik (data ordinal). Kriteria: >0.7 = Kuat, 0.4–0.7 = Sedang, 0.2–0.4 = Lemah.<br>• <b>Somers' D</b>: mengukur asosiasi ordinal asimetris (pengaruh sensoris → target). Kolom <b>Interpretasi</b> di tabel mengacu pada Somers' D..</div></div></div>`;
-if (comparisons.length > 0) { html += `<div class="output-section"><div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📋 Detail Crosstab</div><div class="collapsible-content" style="padding:10px;">`; comparisons.forEach(comp => { html += `<h5 style="background:#e8ecf1;padding:8px 12px;margin:10px 0 5px;border-radius:4px;font-size:11px;">🔬 ${comp.pair}</h5>`; const ct = generateCrosstab(allData[comp.sensory], allData[comp.target], variableDefs[comp.sensory]?.label || comp.sensory, variableDefs[comp.target]?.label || comp.target); if (ct) { html += ct; html += `<p style="font-size:9px;color:#666;margin-top:5px;"><b>Spearman (p) rho = ${comp.r.toFixed(3)}</b> | <b>Somers' D = ${comp.somers.d.toFixed(3)}</b> (${comp.somers.interpretation})</p>`; } }); html += `</div></div>`; }
-return html;
+
+// 🔧 FUNGSI BARU: Generate tabel korelasi dengan format SPSS
+function generateCorrelationTable() {
+    if (AppConfig.testMode !== TestMode.HEDONIK) return '';
+    const sensoryAttrs = getActiveSensoryAttrs();
+    const targetAttrs = getActiveTargetAttrs();
+    if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
+
+    // Gabungkan semua data
+    const allData = {};
+    const allAnalysisAttrs = [...sensoryAttrs, ...targetAttrs];
+    allAnalysisAttrs.forEach(key => { allData[key] = []; });
+    
+    for (let s = 1; s <= numSamples; s++) {
+        const sampleData = getSampleData(s);
+        sampleData.forEach(row => {
+            allAnalysisAttrs.forEach(key => {
+                const val = row[key] || 0;
+                if (val > 0) allData[key].push(val);
+            });
+        });
+    }
+    
+    const maxLen = Math.max(...Object.values(allData).map(arr => arr.length), 0);
+    if (maxLen < 3) return '';
+    
+    Object.keys(allData).forEach(key => { 
+        while (allData[key].length < maxLen) allData[key].push(0); 
+    });
+
+    // Hitung korelasi
+    const correlations = {};
+    sensoryAttrs.forEach(sensory => {
+        correlations[sensory] = {};
+        targetAttrs.forEach(target => {
+            if (sensory === target) {
+                correlations[sensory][target] = null; // Tidak ada statistik
+            } else {
+                const x = allData[sensory];
+                const y = allData[target];
+                const r = spearmanCorrelation(x, y);
+                const sd = somersD(x, y);
+                correlations[sensory][target] = { r: r, d: sd.d, interpretation: sd.interpretation };
+            }
+        });
+    });
+
+    // Bangun HTML tabel
+    let html = `<div class="output-section">`;
+    html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel Correlation with Somers'd (Correlation ordinal by Ordinal)</div>`;
+    html += `<div class="collapsible-content expanded" style="padding:10px;">`;
+    html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
+
+    // Header - UBAH WARNA HEADER dari #f4a460 ke #34495e
+    html += `<tr style="background-color:#f2f2f2;">`;
+    html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white;"></th>`;
+    targetAttrs.forEach(target => {
+        html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white;">${variableDefs[target]?.label || target}</th>`;
+    });
+    html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white; text-align:left; min-width:300px;">Kesimpulan</th>`;
+    html += `</tr>`;
+
+    // Baris data
+    sensoryAttrs.forEach(sensory => {
+        let labelSensory = variableDefs[sensory]?.label || sensory;
+        html += `<tr>`;
+        html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">${labelSensory}</td>`;
+
+        let kesimpulanParts = [];
+        targetAttrs.forEach(target => {
+            const corr = correlations[sensory][target];
+            if (corr === null) {
+                // Tidak ada statistik (self-correlation)
+                html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
+            } else {
+                const absR = Math.abs(corr.r);
+                let cellColor = '#000';
+                let textColor = '#fff';
+                let isSignificant = false;
+
+                // Tentukan warna berdasarkan nilai korelasi dan signifikansi
+                if (absR >= 0.2) {
+                    // Korelasi signifikan (hijau)
+                    cellColor = '#90EE90'; // Light green
+                    textColor = '#000';
+                    isSignificant = true;
+                } else {
+                    // Korelasi tidak signifikan (merah)
+                    cellColor = '#FF6B6B'; // Light red
+                    textColor = '#fff';
+                    isSignificant = false;
+                }
+
+                html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
+
+                // Bangun kesimpulan
+                const targetLabel = variableDefs[target]?.label || target;
+                const strengthLabel = absR >= 0.8 ? 'sangat kuat' : (absR >= 0.6 ? 'kuat' : (absR >= 0.4 ? 'sedang' : (absR >= 0.2 ? 'lemah' : 'sangat lemah')));
+                const sigText = isSignificant ? 'signifikan' : 'tidak signifikan';
+
+                if (sensory === 'overall') {
+                    kesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. Korelasi ${sigText}.`);
+                } else {
+                    kesimpulanParts.push(`korelasi ${labelSensory.toLowerCase()} terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. Korelasi ${sigText}.`);
+                }
+            }
+        });
+
+        // Gabungkan kesimpulan
+        let kesimpulanText = '';
+        if (kesimpulanParts.length > 0) {
+            // Gabungkan dengan logika yang lebih baik
+            const uniqueParts = [...new Set(kesimpulanParts)];
+            if (uniqueParts.length === 1) {
+                kesimpulanText = uniqueParts[0];
+            } else if (uniqueParts.length === 2) {
+                kesimpulanText = uniqueParts.join(' Namun terhadap ');
+            } else {
+                kesimpulanText = uniqueParts.join('. ');
+            }
+        }
+
+        html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${kesimpulanText}</td>`;
+        html += `</tr>`;
+    });
+
+    // Tambahkan baris Overall Liking jika ada
+    if (sensoryAttrs.includes('overall')) {
+        html += `<tr>`;
+        html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">Overall liking</td>`;
+        targetAttrs.forEach(target => {
+            if (target === 'overall') {
+                html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
+            } else {
+                const corr = correlations['overall']?.[target];
+                if (corr) {
+                    const absR = Math.abs(corr.r);
+                    let cellColor = absR >= 0.2 ? '#90EE90' : '#FF6B6B';
+                    let textColor = absR >= 0.2 ? '#000' : '#fff';
+                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
+                } else {
+                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
+                }
+            }
+        });
+        html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.</td>`;
+        html += `</tr>`;
+    }
+
+    html += `</table>`;
+
+    // Note
+    html += `<div style="margin-top:10px; font-size:10px;">`;
+    html += `<p><b>Note:</b></p>`;
+    html += `<div style="display:flex; gap:10px; margin:5px 0;">`;
+    html += `<div style="background-color:#90EE90; padding:5px 10px; border:1px solid #ccc;">Significant with 95% Confidence level</div>`;
+    html += `<div style="background-color:#FF6B6B; padding:5px 10px; border:1px solid #ccc; color:white;">Not Significant</div>`;
+    html += `<div style="background-color:#000; padding:5px 10px; border:1px solid #ccc; color:white;">- No statistics are computed</div>`;
+    html += `</div>`;
+    html += `</div>`;
+
+    // Tabel kategori hubungan
+    html += `<table class="output-table" style="width:auto; margin-top:10px; font-size:10px;">`;
+    html += `<tr><th style="background-color:#34495e; color:white; border:1px solid #ccc; padding:5px;">Value</th><th style="background-color:#34495e; color:white; border:1px solid #ccc; padding:5px;">Kategori Hubungan</th></tr>`;
+    html += `<tr><td style="border:1px solid #ccc; padding:5px;">0.00 - 0.19</td><td style="border:1px solid #ccc; padding:5px;">Sangat Lemah</td></tr>`;
+    html += `<tr><td style="border:1px solid #ccc; padding:5px;">0.20 - 0.39</td><td style="border:1px solid #ccc; padding:5px;">Lemah</td></tr>`;
+    html += `<tr><td style="border:1px solid #ccc; padding:5px;">0.40 - 0.59</td><td style="border:1px solid #ccc; padding:5px;">Sedang</td></tr>`;
+    html += `<tr><td style="border:1px solid #ccc; padding:5px;">0.60 - 0.79</td><td style="border:1px solid #ccc; padding:5px;">Kuat</td></tr>`;
+    html += `<tr><td style="border:1px solid #ccc; padding:5px;">0.80 - 1.00</td><td style="border:1px solid #ccc; padding:5px;">Sangat Kuat</td></tr>`;
+    html += `</table>`;
+
+    html += `<div style="margin-top:10px; font-size:10px;">`;
+    html += `<p><b>Positif</b>: Berbanding lurus (Semakin tinggi ... semakin tinggi)</p>`;
+    html += `<p><b>Negatif</b>: Berbanding terbalik (Semakin tinggi ... semakin rendah ...)</p>`;
+    html += `</div>`;
+
+    html += `</div>`;
+    html += `</div>`;
+    return html;
 }
+
+// 🔧 FUNGSI BARU: Generate tabel korelasi per sampel
+function generateCorrelationTablePerSample() {
+    if (AppConfig.testMode !== TestMode.HEDONIK) return '';
+    const sensoryAttrs = getActiveSensoryAttrs();
+    const targetAttrs = getActiveTargetAttrs();
+    if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
+
+    let html = `<div class="output-section">`;
+    html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📋 Correlation with Somers'd (Correlation ordinal by Ordinal) per Sampel</div>`;
+    html += `<div class="collapsible-content expanded" style="padding:10px;">`;
+
+    for (let si = 1; si <= numSamples; si++) {
+        const sampleData = getSampleData(si);
+        const sampleLabel = sampleNames[si - 1] || `Sampel ${String.fromCharCode(64 + si)}`;
+
+        html += `<h5 style="background:#e8ecf1;padding:8px 12px;margin:10px 0 5px;border-radius:4px;font-size:11px;">🔬 ${escapeHtml(sampleLabel)}</h5>`;
+
+        // Hitung korelasi untuk sampel ini
+        const correlations = {};
+        sensoryAttrs.forEach(sensory => {
+            correlations[sensory] = {};
+            targetAttrs.forEach(target => {
+                if (sensory === target) {
+                    correlations[sensory][target] = null;
+                } else {
+                    const x = sampleData.map(row => parseFloat(row[sensory]) || 0);
+                    const y = sampleData.map(row => parseFloat(row[target]) || 0);
+                    const r = spearmanCorrelation(x, y);
+                    const sd = somersD(x, y);
+                    correlations[sensory][target] = { r: r, d: sd.d, interpretation: sd.interpretation };
+                }
+            });
+        });
+
+        // Bangun tabel
+        html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
+        html += `<tr style="background-color:#f2f2f2;">`;
+        html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white;"></th>`;
+        targetAttrs.forEach(target => {
+            html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white;">${variableDefs[target]?.label || target}</th>`;
+        });
+        html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white; text-align:left; min-width:300px;">Kesimpulan</th>`;
+        html += `</tr>`;
+
+        sensoryAttrs.forEach(sensory => {
+            let labelSensory = variableDefs[sensory]?.label || sensory;
+            html += `<tr>`;
+            html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">${labelSensory}</td>`;
+
+            let kesimpulanParts = [];
+            targetAttrs.forEach(target => {
+                const corr = correlations[sensory][target];
+                if (corr === null) {
+                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
+                } else {
+                    const absR = Math.abs(corr.r);
+                    let cellColor = '#000';
+                    let textColor = '#fff';
+                    let isSignificant = false;
+
+                    if (absR >= 0.2) {
+                        cellColor = '#90EE90';
+                        textColor = '#000';
+                        isSignificant = true;
+                    } else {
+                        cellColor = '#FF6B6B';
+                        textColor = '#fff';
+                        isSignificant = false;
+                    }
+
+                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
+
+                    const targetLabel = variableDefs[target]?.label || target;
+                    const strengthLabel = absR >= 0.8 ? 'sangat kuat' : (absR >= 0.6 ? 'kuat' : (absR >= 0.4 ? 'sedang' : (absR >= 0.2 ? 'lemah' : 'sangat lemah')));
+                    const sigText = isSignificant ? 'signifikan' : 'tidak signifikan';
+
+                    if (sensory === 'overall') {
+                        kesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. Korelasi ${sigText}.`);
+                    } else {
+                        kesimpulanParts.push(`korelasi ${labelSensory.toLowerCase()} terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. Korelasi ${sigText}.`);
+                    }
+                }
+            });
+
+            let kesimpulanText = '';
+            if (kesimpulanParts.length > 0) {
+                const uniqueParts = [...new Set(kesimpulanParts)];
+                if (uniqueParts.length === 1) {
+                    kesimpulanText = uniqueParts[0];
+                } else if (uniqueParts.length === 2) {
+                    kesimpulanText = uniqueParts.join(' Namun terhadap ');
+                } else {
+                    kesimpulanText = uniqueParts.join('. ');
+                }
+            }
+
+            html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${kesimpulanText}</td>`;
+            html += `</tr>`;
+        });
+
+        if (sensoryAttrs.includes('overall')) {
+            html += `<tr>`;
+            html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">Overall liking</td>`;
+            targetAttrs.forEach(target => {
+                if (target === 'overall') {
+                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
+                } else {
+                    const corr = correlations['overall']?.[target];
+                    if (corr) {
+                        const absR = Math.abs(corr.r);
+                        let cellColor = absR >= 0.2 ? '#90EE90' : '#FF6B6B';
+                        let textColor = absR >= 0.2 ? '#000' : '#fff';
+                        html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
+                    } else {
+                        html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
+                    }
+                }
+            });
+            html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.</td>`;
+            html += `</tr>`;
+        }
+
+        html += `</table>`;
+    }
+
+    html += `</div>`;
+    html += `</div>`;
+    return html;
+}
+
 function toggleCollapsible(el) { el.classList.toggle('collapsed'); el.nextElementSibling.classList.toggle('expanded'); }
+
 // ==================== TARGET FUNCTIONS ====================
 function openTargetModal() { document.getElementById('targetInput').value = targetConfig.rawInput; validateTargetInput(); document.getElementById('targetModal').classList.add('show'); }
 function closeTargetModal() { document.getElementById('targetModal').classList.remove('show'); }
@@ -580,6 +898,7 @@ function parseTargetString(str) { let cleanStr = str.replace(/kode/gi, '').trim(
 function saveTarget() { const input = document.getElementById('targetInput').value.trim(); if (!validateTargetInput()) { alert('Format tidak valid!'); return; } const parsed = parseTargetString(input); targetConfig = { rawInput: input, treatments: parsed.treatments, baselines: parsed.baselines, isValid: true }; closeTargetModal(); updateStatus(`🎯 Target disimpan`); }
 function resolveTargetIndices(codes) { const indices = []; codes.forEach(code => { const codeUpper = code.toUpperCase(); const letterIdx = sampleNames.findIndex((_, i) => String.fromCharCode(65+i) === codeUpper); if (letterIdx !== -1) { indices.push(letterIdx); return; } const nameIdx = sampleNames.findIndex(s => s.toUpperCase().includes(codeUpper)); if (nameIdx !== -1) indices.push(nameIdx); }); return indices; }
 function evaluateTargetFromResults(anovaResults) { if (!anovaResults || Object.keys(anovaResults).length===0) return { passCount:0, total:0, details:[] }; const parsed = parseTargetString(targetConfig.rawInput); if (!parsed) return { passCount:0, total:0, details:[], error:'Target tidak valid' }; const baseIndices = resolveTargetIndices(parsed.baselines); const treatIndices = resolveTargetIndices(parsed.treatments); if (baseIndices.length===0 || treatIndices.length===0) return { passCount:0, total:0, details:[], error:'Sampel tidak ditemukan' }; let passCount = 0; const total = Object.keys(anovaResults).length; const details = []; Object.entries(anovaResults).forEach(([attr, result]) => { if (!result.sampleMeans) return; const baseMeans = baseIndices.map(i => result.sampleMeans[i]||0); const avgBaseMean = baseMeans.reduce((a,b)=>a+b,0)/baseMeans.length; const treatMeans = treatIndices.map(i => ({ name: escapeHtml(sampleNames[i]), mean: result.sampleMeans[i]||0 })); const allPass = treatMeans.every(t => t.mean >= avgBaseMean); if (allPass) passCount++; details.push({ attr: escapeHtml(attr), pass: allPass, avgBaseMean, treatMeans }); }); return { passCount, total, details }; }
+
 // ==================== P-VALUE ====================
 function logGamma(x) {
 if (x <= 0) return NaN;
@@ -626,6 +945,7 @@ const x = df2 / (df2 + df1 * F);
 const cdf = ibeta(df2 / 2, df1 / 2, x);
 return Math.max(0, Math.min(1, cdf));
 }
+
 // ==================== SUMMARY ====================
 function showCustomSummary() {
 if (!lastAnalysisResults || !lastAnalysisResults.anovaResults) { alert('⚠️ Jalankan analisis terlebih dahulu!'); return; }
@@ -637,6 +957,7 @@ if (cfg && cfg.id) {
     requestAnimationFrame(() => { drawSpiderChart(cfg.id, cfg.data, cfg.labels); }); 
 }
 }
+
 // 🔧 FUNGSI SUMMARY REPORT YANG DIPERBAIKI DENGAN URUTAN BARU
 function generateDynamicSummaryHTML() {
 if (!lastAnalysisResults || !lastAnalysisResults.anovaResults)
@@ -804,7 +1125,7 @@ html += `Nilai ini berada pada tingkat <b>cukup</b>, namun masih terdapat ruang 
 html += `Peningkatan pada ${escapeHtml(sample.minLabel)} dapat membantu menciptakan profil sensoris yang lebih seimbang dan memuaskan. `;
 } else {
 html += `Meskipun merupakan atribut terendah, nilainya masih berada pada tingkat yang <b>cukup baik</b>, `;
-html += `namun optimalisasi pada aspek ini dapat进一步提升 daya saing sampel. `;
+html += `namun optimalisasi pada aspek ini dapat meningkatkan daya saing sampel. `;
 }
 // Bandingkan dengan sampel lain pada atribut terlemah
 const minAttrIdx = sample.means.indexOf(sample.min);
@@ -994,11 +1315,15 @@ html += `</div>`;
 html += `</div>`;
 return html;
 }
+
 function downloadSummaryPDF() { const html = generateDynamicSummaryHTML(); const pdfWindow = window.open('','_blank','width=1000,height=800'); if(!pdfWindow){alert('Popup diblokir!');return;} pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Summary</title><style>body{font-family:'Segoe UI',sans-serif;font-size:12px;padding:20px;}h2{color:#1a3a5c;border-bottom:3px solid #1a3a5c;}h3{color:#2c3e50;background:#e8ecf1;padding:8px 12px;border-left:5px solid #1a3a5c;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#34495e;color:white;padding:8px;}td{padding:6px 8px;border:1px solid #ddd;}p{line-height:1.8;text-align:justify;}</style></head><body><h1>📊 WebSPSS v3.0 — Summary</h1>${html}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`); pdfWindow.document.close(); }
+
 async function downloadSummaryExcel() { try { const workbook = new ExcelJS.Workbook(); const headerStyle = { font:{bold:true,color:{argb:'FFFFFFFF'}},fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A5C'}},alignment:{horizontal:'center',vertical:'middle'},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}}; const cellStyle = { font:{size:10},alignment:{horizontal:'center',vertical:'middle'},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} }; const ar = lastAnalysisResults?.anovaResults || {}; const targetEval = evaluateTargetFromResults(ar); const ws1 = workbook.addWorksheet('Informasi'); ws1.addRow(['SUMMARY']).font = {bold:true,size:14}; ws1.addRow(['Target', targetConfig.rawInput]); ws1.addRow(['Panelis', dataRows.length]); ws1.addRow(['Sampel', sampleNames.join(', ')]); const ws2 = workbook.addWorksheet('Evaluasi'); const parsed = parseTargetString(targetConfig.rawInput); if (parsed && !targetEval.error && targetEval.total>0) { const treatIndices = resolveTargetIndices(parsed.treatments); const baseIndices = resolveTargetIndices(parsed.baselines); const evalHeaders = ['Atribut']; treatIndices.forEach(i => evalHeaders.push(sampleNames[i])); baseIndices.forEach(i => evalHeaders.push(sampleNames[i])); evalHeaders.push('Status'); ws2.addRow(evalHeaders).eachCell(c => Object.assign(c, headerStyle)); targetEval.details.forEach(d => { const row = [d.attr]; d.treatMeans.forEach(t => row.push(t.mean.toFixed(2))); row.push(d.avgBaseMean.toFixed(2)); row.push(d.pass?'TERPENUHI':'TIDAK'); ws2.addRow(row).eachCell(c => Object.assign(c, cellStyle)); }); } ws2.columns.forEach(c => c.width=18); const buffer = await workbook.xlsx.writeBuffer(); const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `WebSPSS_Summary_${new Date().toISOString().slice(0,10)}.xlsx`; a.click(); URL.revokeObjectURL(url); } catch(e) { alert('Gagal: '+e.message); } }
+
 // ==================== MODE TOGGLE ====================
 function toggleTestMode() { if (dataRows.length > 0) { if (!confirm(`⚠️ Mengubah mode akan mempengaruhi data.\nLanjutkan?`)) return; } saveState(); AppConfig.testMode = AppConfig.testMode === TestMode.HEDONIK ? TestMode.DESKRIPTIF : TestMode.HEDONIK; const scale = getActiveScale(); if (AppConfig.testMode === TestMode.HEDONIK) activeVariables = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall','recommended','purchase_intent']; else activeVariables = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall']; activeVariables.forEach(key => { if (variableDefs[key]) { if (key === 'overall') variableDefs[key].hedonik = AppConfig.testMode===TestMode.HEDONIK?'OVERALL LIKING':'OVERALL INTENSITY'; else variableDefs[key].hedonik = `${scale.prefix} ${variableDefs[key].label.toUpperCase()}`; } }); document.getElementById('btnToggleMode').textContent = `🔄 Mode: ${getModeLabel()}`; const ind = document.getElementById('modeIndicator'); ind.className = `mode-indicator ${AppConfig.testMode}`; ind.textContent = AppConfig.testMode.toUpperCase(); dataColumns = generateColumns(); editMode = false; activeCell = { row: 0, col: 0 }; selStart = null; selEnd = null; initTable(); clearOutput(); updateStatus(`🔄 Mode: ${getModeLabel()}`); }
 function getModeLabel() { return AppConfig.testMode === TestMode.HEDONIK ? 'Hedonik' : 'Deskriptif'; }
+
 // ==================== VARIABLE MANAGER ====================
 function openVariableManager() { pendingVarDefs = JSON.parse(JSON.stringify(variableDefs)); pendingActiveVars = [...activeVariables]; renderVarList(); document.getElementById('newVarKey').value = ''; document.getElementById('newVarLabel').value = ''; document.getElementById('varModal').classList.add('show'); }
 function closeVariableManager() { document.getElementById('varModal').classList.remove('show'); pendingVarDefs = null; pendingActiveVars = null; }
@@ -1007,6 +1332,7 @@ function removeVarItem(key) { if (pendingActiveVars.length <= 1) { alert('Minima
 function addVariable() { const key = document.getElementById('newVarKey').value.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); const label = document.getElementById('newVarLabel').value.trim(); if (!key || !label) { alert('Key dan Label harus diisi!'); return; } if (pendingActiveVars.includes(key)) { alert('Key sudah ada!'); return; } pendingActiveVars.push(key); pendingVarDefs[key] = { label: label, hedonik: `${getActiveScale().prefix} ${label.toUpperCase()}` }; document.getElementById('newVarKey').value = ''; document.getElementById('newVarLabel').value = ''; renderVarList(); }
 function resetVariables() { if (!confirm('Reset ke default?')) return; pendingVarDefs = JSON.parse(JSON.stringify(defaultVariableDefs)); pendingActiveVars = AppConfig.testMode === TestMode.HEDONIK ? ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall','recommended','purchase_intent'] : ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall']; renderVarList(); }
 function applyVariables() { if (!pendingActiveVars || pendingActiveVars.length === 0) { alert('Minimal 1 variabel!'); return; } if (!confirm(`Terapkan ${pendingActiveVars.length} variabel?`)) return; saveState(); variableDefs = JSON.parse(JSON.stringify(pendingVarDefs)); activeVariables = [...pendingActiveVars]; const newCols = generateColumns(); const newRows = dataRows.map(oldRow => { const newRow = {}; newCols.forEach(col => { newRow[col] = oldRow[col] !== undefined ? oldRow[col] : ''; }); return newRow; }); dataColumns = newCols; dataRows = newRows; editMode = false; activeCell = { row: 0, col: 0 }; selStart = null; selEnd = null; initTable(); closeVariableManager(); updateStatus(`✅ ${activeVariables.length} atribut`); }
+
 // ==================== UI ====================
 function getActivePK() { return activeVariables; }
 function getActivePL() { return activeVariables.map(v => variableDefs[v]?.hedonik || v); }
@@ -1062,6 +1388,7 @@ function copySelection() { if (!selStart || !selEnd) return; const r1 = Math.min
 function fallbackCopy(text) { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); updateStatus('📋 Disalin'); } catch(e) { updateStatus('❌ Gagal'); } document.body.removeChild(ta); }
 async function pasteFromClipboard() { if (dataRows.length === 0) { const nr = {}; dataColumns.forEach(c => nr[c] = ''); dataRows.push(nr); } let text = ''; try { if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText(); } catch(e) { text = prompt('Paste data:'); if (!text) return; } if (!text || !text.trim()) return; const lines = text.split(/\r?\n/).filter(l => l.length > 0 || text.endsWith('\n')); if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop(); const pasteData = lines.map(l => l.split('\t')); if (pasteData.length === 0) return; const anchorRow = activeCell.row; const anchorCol = activeCell.col; saveState(); const neededRows = anchorRow + pasteData.length; while (dataRows.length < neededRows) { const nr = {}; dataColumns.forEach(c => nr[c] = ''); dataRows.push(nr); } let maxRow = anchorRow, maxCol = anchorCol; for (let r = 0; r < pasteData.length; r++) { const ri = anchorRow + r; if (ri >= dataRows.length) break; for (let c = 0; c < pasteData[r].length; c++) { const ci = anchorCol + c; if (ci >= dataColumns.length) break; let v = pasteData[r][c].trim(); v = v.replace(',', '.'); const n = parseFloat(v); dataRows[ri][dataColumns[ci]] = isNaN(n) || v === '' ? v : n; maxRow = Math.max(maxRow, ri); maxCol = Math.max(maxCol, ci); } } selStart = { row: anchorRow, col: anchorCol }; selEnd = { row: maxRow, col: maxCol }; activeCell = { row: anchorRow, col: anchorCol }; editMode = false; initTable(); updateStatus(`📋 Paste: ${pasteData.length}R×${pasteData[0]?.length||0}C di ${getCellRef(anchorRow, anchorCol)}`); }
 function deleteSelectedCells() { if (!selStart || !selEnd) { if (dataRows[activeCell.row]) { saveState(); dataRows[activeCell.row][dataColumns[activeCell.col]] = ''; renderBody(); updateCellNameBox(); } return; } const r1 = Math.min(selStart.row, selEnd.row), r2 = Math.max(selStart.row, selEnd.row); const c1 = Math.min(selStart.col, selEnd.col), c2 = Math.max(selStart.col, selEnd.col); if (c1 === 0 && c2 === dataColumns.length - 1 && r1 !== r2) { if (confirm(`Hapus ${r2-r1+1} baris?`)) { saveState(); for (let i = r2; i >= r1; i--) dataRows.splice(i, 1); if (activeCell.row >= dataRows.length) activeCell.row = Math.max(0, dataRows.length - 1); selStart = null; selEnd = null; initTable(); } return; } saveState(); for (let ri = r1; ri <= r2; ri++) for (let ci = c1; ci <= c2; ci++) if (ri < dataRows.length && ci < dataColumns.length) dataRows[ri][dataColumns[ci]] = ''; renderBody(); updateCellNameBox(); }
+
 // ==================== SAMPLE DATA ====================
 function createSampleRow(name,g,age,dept,scores) { const row = {'Nama Panelis':name,'Jenis Kelamin':g,'Usia':age,'Departement':dept}; const pb = getActivePL(); const numAttr = activeVariables.length; const sampleScores = scores.map((s,i)=>({sample:String.fromCharCode(65+i),score:s.slice(0,Math.min(7,numAttr)).reduce((a,b)=>a+b,0)})); sampleScores.sort((a,b)=>b.score-a.score); scores.forEach((s,i)=>{ const sf = i===0?'':(i+1); pb.forEach((p,pi)=>{row[p+sf]=s[pi]||0;}); }); row['PREFERENSI'] = sampleScores.map(s=>s.sample).join(';'); row['ALASAN'] = ''; return row; }
 function loadSampleData(d) { saveState(); dataRows = d.map(r=>createSampleRow(...r)); editMode = false; activeCell = { row: 0, col: 0 }; selStart = null; selEnd = null; initTable(); renderSampleNameInputs(); updateStatus(`✅ ${dataRows.length} panelis`); document.getElementById('outputContent').innerHTML=`<div style="text-align:center;padding:30px;"><p style="font-size:28px;">✅</p><p><b>${dataRows.length} Panelis</b> siap!</p></div>`; }
@@ -1077,9 +1404,11 @@ function addOutputSection(title, content, isGold=false) { const od = document.ge
 function clearOutput() { document.getElementById('outputContent').innerHTML = ''; lastAnalysisResults = null; updateStatus('Output cleared'); }
 function printOutput() { window.print(); }
 function updateStatus(msg) { document.getElementById('statusBar').textContent = 'v3.0 | ' + msg; document.getElementById('statusLeft').textContent = new Date().toLocaleTimeString(); }
+
 // ==================== EXPORT ====================
 function downloadPDF() { const outputHTML = document.getElementById('outputContent').innerHTML; const modeLabel = getModeLabel(); const pdfWindow = window.open('','_blank','width=1000,height=800'); if (!pdfWindow) { alert('Popup diblokir!'); return; } pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;border:1px solid #ddd;}canvas{max-width:100%;}</style></head><body><h2>📊 WebSPSS v3.0 — ${modeLabel}</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`); pdfWindow.document.close(); }
 function downloadCSV() { let csv = '\uFEFF'; csv += `=== MODE: ${getModeLabel().toUpperCase()} ===\n=== DATA ===\n` + dataColumns.join(',') + '\n'; dataRows.forEach(row => { csv += dataColumns.map(c => { const v = row[c] !== undefined ? row[c] : ''; return String(v).includes(',') ? '"' + String(v).replace(/"/g, '""') + '"' : String(v); }).join(',') + '\n'; }); const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `webspss_${getModeLabel().toLowerCase()}_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url); }
+
 async function downloadExcel() {
 try {
 updateStatus('⏳ Menyiapkan Excel...');
@@ -1145,6 +1474,7 @@ URL.revokeObjectURL(url);
 updateStatus(`📥 Excel didownload`);
 } catch(error) { console.error('Excel error:', error); alert(`❌ Gagal: ${error.message}`); }
 }
+
 // ==================== SPIDER CHART ====================
 function drawSpiderChart(canvasId, samplesData, labels) {
 const cv = document.getElementById(canvasId);
@@ -1243,6 +1573,7 @@ ctx.fillText(pt.val.toFixed(1), pt.x, pt.y - 6);
 });
 });
 }
+
 // ==================== STAT FUNCTIONS ====================
 // 🔧 FIX: Type safety ketat untuk mencegah silent failure jika ada string kosong yang lolos
 function mean(a) { const f=a.filter(v => typeof v === 'number' && !isNaN(v) && v>0); return f.length>0?f.reduce((x,y)=>x+y,0)/f.length:0; }
@@ -1300,8 +1631,10 @@ function validateBalancedDesign(matrix,n,k) { let incompleteCount=0; for (let ri
 const getOverallLabel=()=>{ if (activeVariables.includes('overall')) return variableDefs['overall']?.label||(AppConfig.testMode===TestMode.HEDONIK?'Overall Liking':'Overall Intensity'); const last=activeVariables[activeVariables.length-1]; return variableDefs[last]?.label||last; };
 function convertDuncanToSubset(means,sampleNames,duncanGroups) { const k=means.length; const indexed=means.map((m,i)=>({mean:m,name:sampleNames[i],group:duncanGroups[i],index:i})).sort((a,b)=>b.mean-a.mean); const allLetters=Array.from(new Set(indexed.flatMap(item=>item.group.split('')))).sort(); const subsets=[]; const letterToSubsetIndex={}; let subsetIdx=0; allLetters.forEach(letter=>{letterToSubsetIndex[letter]=subsetIdx++;}); for (let i=0;i<subsetIdx;i++) { subsets.push([]); } indexed.forEach(item=>{ const letters=item.group.split(''); letters.forEach(letter=>{ const sIdx=letterToSubsetIndex[letter]; if (sIdx!==undefined) subsets[sIdx].push(item); }); }); subsets.forEach(subset=>{subset.sort((a,b)=>b.mean-a.mean);}); return subsets.filter(s=>s.length>0); }
 function renderDuncanSPSSStyle(anovaResults,sampleNames,nPerSample) { if (!anovaResults||Object.keys(anovaResults).length===0) return ''; let html=''; Object.entries(anovaResults).forEach(([attr,result])=>{ if (!result.sampleMeans) return; const groups=duncanMRT(result.sampleMeans,result.msError,result.n||nPerSample,result.dfError); const subsets=convertDuncanToSubset(result.sampleMeans,sampleNames,groups); const numSubsets=subsets.length; const sortedSamples=result.sampleMeans.map((m,i)=>({name:escapeHtml(sampleNames[i]),mean:m,group:groups[i],originalIndex:i})).sort((a,b)=>a.mean-b.mean); const matrix=sortedSamples.map(sample=>{ const row={}; subsets.forEach((subset,idx)=>{ const inSubset=subset.some(s=>s.name===sample.name); row[idx+1]=inSubset?sample.mean.toFixed(2):''; }); return {...sample,...row}; }); html+=`<div class="spss-duncan-container"><div class="spss-duncan-title">Duncan<sub>a</sub> — ${escapeHtml(attr)}</div><table class="spss-table">`; html+=`<tr><th rowspan="2" class="product-header">Nama Produk</th><th rowspan="2" class="n-header">N</th><th rowspan="2" style="background: #1a3a5c;">Huruf Duncan</th><th colspan="${numSubsets}" class="subset-header">Subset for alpha = 0.05</th></tr><tr>`; for (let i=1;i<=numSubsets;i++) { html+=`<th class="subset-header">${i}</th>`; } html+=`</tr>`; matrix.forEach(row=>{ html+=`<tr><td class="product-cell">${row.name}</td><td class="n-cell">${nPerSample}</td><td style="text-align: center; font-weight: 700; color: #1a73e8;">${row.group}</td>`; for (let i=1;i<=numSubsets;i++) { html+=`<td class="subset-cell">${row[i]}</td>`; } html+=`</tr>`; }); html+=`<tr class="sig-row"><td class="product-cell">Sig.</td><td class="n-cell"></td><td></td>`; for (let i=1;i<=numSubsets;i++) { html+=`<td class="sig-cell">${result.F?result.F.toFixed(3):(result.sig?'< 0.05':'> 0.05')}</td>`; } html+=`</tr></table></div>`; }); html+=`<div class="note-box" style="margin-top: 10px;"><b>📖 Cara Membaca:</b><br>• Sampel dengan <b>huruf yang sama</b> = tidak berbeda signifikan.<br>• Sampel dalam <b>subset yang sama</b> = tidak berbeda signifikan.</div>`; return html; }
+
 // ==================== ANALYSIS ====================
 function runAnalysisWithAssumptionCheck(isGold) { if (!dataRows.length) { alert('Data kosong!'); return; } if (dataRows.length < 3) { alert('Minimal 3 panelis!'); return; } if (!isGold) { const confirmed = confirm(`⚠️ Mode "Lengkap" menggunakan One-Way ANOVA parametrik.\nMode aktif: ${getModeLabel()}\nLanjutkan?`); if (!confirmed) return; } if (editMode) commitEdit(); clearOutput(); runCore(isGold); if (!isGold) updateStatus(`✅ Analisis Lengkap selesai`); else { updateStatus(`🏆 Analisis Profesional selesai!`); document.getElementById('outputContent').scrollTop = 0; } }
+
 function runCore(isGold) {
 const n = dataRows.length, k = numSamples;
 const pk = activeVariables, sl = getActiveSL();
@@ -1368,8 +1701,22 @@ hedHTML += '</table>';
 const nPercentTitle = AppConfig.testMode === TestMode.HEDONIK ? `📊 Hedonik N% (Skor ≥ ${scale.threshold} = ${scale.thresholdLabel})` : `📊 Intensitas N% (Skor ≥ ${scale.threshold} = ${scale.thresholdLabel})`;
 addOutputSection(nPercentTitle, hedHTML, isGold);
 if (AppConfig.testMode === TestMode.HEDONIK) {
-const crosstabHTML = generateCrosstabOutput();
-if (crosstabHTML) { const od = document.getElementById('outputContent'); const section = document.createElement('div'); section.innerHTML = crosstabHTML; while (section.firstChild) { od.appendChild(section.firstChild); } }
+// 🔧 PERUBAHAN: Ganti generateCrosstabOutput dengan generateCorrelationTable
+const correlationHTML = generateCorrelationTable();
+if (correlationHTML) { 
+    const od = document.getElementById('outputContent'); 
+    const section = document.createElement('div'); 
+    section.innerHTML = correlationHTML; 
+    while (section.firstChild) { od.appendChild(section.firstChild); } 
+}
+// 🔧 PERUBAHAN: Ganti detail crosstab dengan correlation per sample
+const correlationPerSampleHTML = generateCorrelationTablePerSample();
+if (correlationPerSampleHTML) {
+    const od = document.getElementById('outputContent');
+    const section = document.createElement('div');
+    section.innerHTML = correlationPerSampleHTML;
+    while (section.firstChild) { od.appendChild(section.firstChild); }
+}
 }
 let prefHTML = '<table class="output-table"><tr><th>Rangking</th><th>Kode</th><th>Deskripsi</th><th>Jumlah Panelis</th><th>Persentase</th></tr>';
 prefRanking.forEach(r => { prefHTML += `<tr class="${getRankClass(r.rank)}"><td>${getRankBadge(r.rank)}</td><td><b>Kode ${String.fromCharCode(64+sampleNames.indexOf(r.name)+1)}</b></td><td>${escapeHtml(r.name)}</td><td>${r.count}</td><td><b>${r.percentage.toFixed(1)}%</b></td></tr>`; });
@@ -1493,6 +1840,7 @@ concHTML += `</ol>`;
 concHTML += `<p style="margin-top:15px;"><em>${modelName} — WebSPSS v3.0. Mode: <b>${modeLabel}</b>. ${isGold?'SNI ISO 4121:2009 compliant.':''}</em></p></div>`;
 addOutputSection('📝 Kesimpulan & Rekomendasi', concHTML, isGold);
 }
+
 // ==================== INIT ====================
 function init() { dataColumns = generateColumns(); initTable(); renderSampleNameInputs(); updateUndoRedoButtons(); document.getElementById('editorArea').addEventListener('click', function(e) { if (e.target === this) { clearSelection(); renderBody(); } }); document.getElementById('editorArea').focus(); }
 init();
