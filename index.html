@@ -578,13 +578,13 @@ function generateCrosstab(x, y, labelX, labelY) {
     return html;
 }
 
-// 🔧 FUNGSI BARU: Generate tabel korelasi dengan format SPSS
+// 🔧 FUNGSI BARU: Generate tabel korelasi dengan Somers'd sesuai rumus SPSS
 function generateCorrelationTable() {
     if (AppConfig.testMode !== TestMode.HEDONIK) return '';
     const sensoryAttrs = getActiveSensoryAttrs();
     const targetAttrs = getActiveTargetAttrs();
     if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
-
+    
     // Gabungkan semua data
     const allData = {};
     const allAnalysisAttrs = [...sensoryAttrs, ...targetAttrs];
@@ -603,11 +603,12 @@ function generateCorrelationTable() {
     const maxLen = Math.max(...Object.values(allData).map(arr => arr.length), 0);
     if (maxLen < 3) return '';
     
-    Object.keys(allData).forEach(key => { 
-        while (allData[key].length < maxLen) allData[key].push(0); 
+    // Pad arrays to same length
+    Object.keys(allData).forEach(key => {
+        while (allData[key].length < maxLen) allData[key].push(0);
     });
-
-    // Hitung korelasi
+    
+    // Hitung Somers'd untuk setiap pasangan
     const correlations = {};
     sensoryAttrs.forEach(sensory => {
         correlations[sensory] = {};
@@ -617,20 +618,19 @@ function generateCorrelationTable() {
             } else {
                 const x = allData[sensory];
                 const y = allData[target];
-                const r = spearmanCorrelation(x, y);
-                const sd = somersD(x, y);
-                correlations[sensory][target] = { r: r, d: sd.d, interpretation: sd.interpretation };
+                const sd = somersDWithSignificance(x, y);
+                correlations[sensory][target] = sd;
             }
         });
     });
-
+    
     // Bangun HTML tabel
     let html = `<div class="output-section">`;
     html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel Correlation with Somers'd (Correlation ordinal by Ordinal)</div>`;
     html += `<div class="collapsible-content expanded" style="padding:10px;">`;
     html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
-
-    // Header - UBAH WARNA HEADER dari #f4a460 ke #34495e
+    
+    // Header
     html += `<tr style="background-color:#f2f2f2;">`;
     html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white;"></th>`;
     targetAttrs.forEach(target => {
@@ -638,13 +638,13 @@ function generateCorrelationTable() {
     });
     html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white; text-align:left; min-width:300px;">Kesimpulan</th>`;
     html += `</tr>`;
-
+    
     // Baris data
     sensoryAttrs.forEach(sensory => {
         let labelSensory = variableDefs[sensory]?.label || sensory;
         html += `<tr>`;
         html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">${labelSensory}</td>`;
-
+        
         let kesimpulanParts = [];
         targetAttrs.forEach(target => {
             const corr = correlations[sensory][target];
@@ -652,13 +652,13 @@ function generateCorrelationTable() {
                 // Tidak ada statistik (self-correlation)
                 html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
             } else {
-                const absR = Math.abs(corr.r);
+                const absD = Math.abs(corr.d);
                 let cellColor = '#000';
                 let textColor = '#fff';
                 let isSignificant = false;
-
-                // Tentukan warna berdasarkan nilai korelasi dan signifikansi
-                if (absR >= 0.2) {
+                
+                // Tentukan warna berdasarkan signifikansi (p-value < 0.05)
+                if (corr.pValue < 0.05) {
                     // Korelasi signifikan (hijau)
                     cellColor = '#90EE90'; // Light green
                     textColor = '#000';
@@ -669,14 +669,14 @@ function generateCorrelationTable() {
                     textColor = '#fff';
                     isSignificant = false;
                 }
-
-                html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
-
+                
+                html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.d.toFixed(2)}</td>`;
+                
                 // Bangun kesimpulan
                 const targetLabel = variableDefs[target]?.label || target;
-                const strengthLabel = absR >= 0.8 ? 'sangat kuat' : (absR >= 0.6 ? 'kuat' : (absR >= 0.4 ? 'sedang' : (absR >= 0.2 ? 'lemah' : 'sangat lemah')));
+                const strengthLabel = absD >= 0.8 ? 'sangat kuat' : (absD >= 0.6 ? 'kuat' : (absD >= 0.4 ? 'sedang' : (absD >= 0.2 ? 'lemah' : 'sangat lemah')));
                 const sigText = isSignificant ? 'signifikan' : 'tidak signifikan';
-
+                
                 if (sensory === 'overall') {
                     kesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. Korelasi ${sigText}.`);
                 } else {
@@ -684,11 +684,10 @@ function generateCorrelationTable() {
                 }
             }
         });
-
+        
         // Gabungkan kesimpulan
         let kesimpulanText = '';
         if (kesimpulanParts.length > 0) {
-            // Gabungkan dengan logika yang lebih baik
             const uniqueParts = [...new Set(kesimpulanParts)];
             if (uniqueParts.length === 1) {
                 kesimpulanText = uniqueParts[0];
@@ -698,11 +697,11 @@ function generateCorrelationTable() {
                 kesimpulanText = uniqueParts.join('. ');
             }
         }
-
+        
         html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${kesimpulanText}</td>`;
         html += `</tr>`;
     });
-
+    
     // Tambahkan baris Overall Liking jika ada
     if (sensoryAttrs.includes('overall')) {
         html += `<tr>`;
@@ -713,10 +712,10 @@ function generateCorrelationTable() {
             } else {
                 const corr = correlations['overall']?.[target];
                 if (corr) {
-                    const absR = Math.abs(corr.r);
-                    let cellColor = absR >= 0.2 ? '#90EE90' : '#FF6B6B';
-                    let textColor = absR >= 0.2 ? '#000' : '#fff';
-                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
+                    const absD = Math.abs(corr.d);
+                    let cellColor = corr.pValue < 0.05 ? '#90EE90' : '#FF6B6B';
+                    let textColor = corr.pValue < 0.05 ? '#000' : '#fff';
+                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.d.toFixed(2)}</td>`;
                 } else {
                     html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
                 }
@@ -725,9 +724,9 @@ function generateCorrelationTable() {
         html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.</td>`;
         html += `</tr>`;
     }
-
+    
     html += `</table>`;
-
+    
     // Note
     html += `<div style="margin-top:10px; font-size:10px;">`;
     html += `<p><b>Note:</b></p>`;
@@ -737,7 +736,7 @@ function generateCorrelationTable() {
     html += `<div style="background-color:#000; padding:5px 10px; border:1px solid #ccc; color:white;">- No statistics are computed</div>`;
     html += `</div>`;
     html += `</div>`;
-
+    
     // Tabel kategori hubungan
     html += `<table class="output-table" style="width:auto; margin-top:10px; font-size:10px;">`;
     html += `<tr><th style="background-color:#34495e; color:white; border:1px solid #ccc; padding:5px;">Value</th><th style="background-color:#34495e; color:white; border:1px solid #ccc; padding:5px;">Kategori Hubungan</th></tr>`;
@@ -747,35 +746,36 @@ function generateCorrelationTable() {
     html += `<tr><td style="border:1px solid #ccc; padding:5px;">0.60 - 0.79</td><td style="border:1px solid #ccc; padding:5px;">Kuat</td></tr>`;
     html += `<tr><td style="border:1px solid #ccc; padding:5px;">0.80 - 1.00</td><td style="border:1px solid #ccc; padding:5px;">Sangat Kuat</td></tr>`;
     html += `</table>`;
-
+    
     html += `<div style="margin-top:10px; font-size:10px;">`;
     html += `<p><b>Positif</b>: Berbanding lurus (Semakin tinggi ... semakin tinggi)</p>`;
     html += `<p><b>Negatif</b>: Berbanding terbalik (Semakin tinggi ... semakin rendah ...)</p>`;
     html += `</div>`;
-
+    
     html += `</div>`;
     html += `</div>`;
+    
     return html;
 }
 
-// 🔧 FUNGSI BARU: Generate tabel korelasi per sampel
+// 🔧 FUNGSI BARU: Generate tabel korelasi per sampel dengan Somers'd
 function generateCorrelationTablePerSample() {
     if (AppConfig.testMode !== TestMode.HEDONIK) return '';
     const sensoryAttrs = getActiveSensoryAttrs();
     const targetAttrs = getActiveTargetAttrs();
     if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
-
+    
     let html = `<div class="output-section">`;
     html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📋 Correlation with Somers'd (Correlation ordinal by Ordinal) per Sampel</div>`;
     html += `<div class="collapsible-content expanded" style="padding:10px;">`;
-
+    
     for (let si = 1; si <= numSamples; si++) {
         const sampleData = getSampleData(si);
         const sampleLabel = sampleNames[si - 1] || `Sampel ${String.fromCharCode(64 + si)}`;
-
+        
         html += `<h5 style="background:#e8ecf1;padding:8px 12px;margin:10px 0 5px;border-radius:4px;font-size:11px;">🔬 ${escapeHtml(sampleLabel)}</h5>`;
-
-        // Hitung korelasi untuk sampel ini
+        
+        // Hitung Somers'd untuk sampel ini
         const correlations = {};
         sensoryAttrs.forEach(sensory => {
             correlations[sensory] = {};
@@ -785,13 +785,12 @@ function generateCorrelationTablePerSample() {
                 } else {
                     const x = sampleData.map(row => parseFloat(row[sensory]) || 0);
                     const y = sampleData.map(row => parseFloat(row[target]) || 0);
-                    const r = spearmanCorrelation(x, y);
-                    const sd = somersD(x, y);
-                    correlations[sensory][target] = { r: r, d: sd.d, interpretation: sd.interpretation };
+                    const sd = somersDWithSignificance(x, y);
+                    correlations[sensory][target] = sd;
                 }
             });
         });
-
+        
         // Bangun tabel
         html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
         html += `<tr style="background-color:#f2f2f2;">`;
@@ -801,24 +800,24 @@ function generateCorrelationTablePerSample() {
         });
         html += `<th style="border:1px solid #ccc; padding:8px; background-color:#34495e; color:white; text-align:left; min-width:300px;">Kesimpulan</th>`;
         html += `</tr>`;
-
+        
         sensoryAttrs.forEach(sensory => {
             let labelSensory = variableDefs[sensory]?.label || sensory;
             html += `<tr>`;
             html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">${labelSensory}</td>`;
-
+            
             let kesimpulanParts = [];
             targetAttrs.forEach(target => {
                 const corr = correlations[sensory][target];
                 if (corr === null) {
                     html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
                 } else {
-                    const absR = Math.abs(corr.r);
+                    const absD = Math.abs(corr.d);
                     let cellColor = '#000';
                     let textColor = '#fff';
                     let isSignificant = false;
-
-                    if (absR >= 0.2) {
+                    
+                    if (corr.pValue < 0.05) {
                         cellColor = '#90EE90';
                         textColor = '#000';
                         isSignificant = true;
@@ -827,13 +826,13 @@ function generateCorrelationTablePerSample() {
                         textColor = '#fff';
                         isSignificant = false;
                     }
-
-                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
-
+                    
+                    html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.d.toFixed(2)}</td>`;
+                    
                     const targetLabel = variableDefs[target]?.label || target;
-                    const strengthLabel = absR >= 0.8 ? 'sangat kuat' : (absR >= 0.6 ? 'kuat' : (absR >= 0.4 ? 'sedang' : (absR >= 0.2 ? 'lemah' : 'sangat lemah')));
+                    const strengthLabel = absD >= 0.8 ? 'sangat kuat' : (absD >= 0.6 ? 'kuat' : (absD >= 0.4 ? 'sedang' : (absD >= 0.2 ? 'lemah' : 'sangat lemah')));
                     const sigText = isSignificant ? 'signifikan' : 'tidak signifikan';
-
+                    
                     if (sensory === 'overall') {
                         kesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. Korelasi ${sigText}.`);
                     } else {
@@ -841,7 +840,7 @@ function generateCorrelationTablePerSample() {
                     }
                 }
             });
-
+            
             let kesimpulanText = '';
             if (kesimpulanParts.length > 0) {
                 const uniqueParts = [...new Set(kesimpulanParts)];
@@ -853,11 +852,11 @@ function generateCorrelationTablePerSample() {
                     kesimpulanText = uniqueParts.join('. ');
                 }
             }
-
+            
             html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${kesimpulanText}</td>`;
             html += `</tr>`;
         });
-
+        
         if (sensoryAttrs.includes('overall')) {
             html += `<tr>`;
             html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#fafafa;">Overall liking</td>`;
@@ -867,10 +866,10 @@ function generateCorrelationTablePerSample() {
                 } else {
                     const corr = correlations['overall']?.[target];
                     if (corr) {
-                        const absR = Math.abs(corr.r);
-                        let cellColor = absR >= 0.2 ? '#90EE90' : '#FF6B6B';
-                        let textColor = absR >= 0.2 ? '#000' : '#fff';
-                        html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.r.toFixed(2)}</td>`;
+                        const absD = Math.abs(corr.d);
+                        let cellColor = corr.pValue < 0.05 ? '#90EE90' : '#FF6B6B';
+                        let textColor = corr.pValue < 0.05 ? '#000' : '#fff';
+                        html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; font-weight:bold;">${corr.d.toFixed(2)}</td>`;
                     } else {
                         html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; background-color:#000; color:#fff;">-</td>`;
                     }
@@ -879,13 +878,112 @@ function generateCorrelationTablePerSample() {
             html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.</td>`;
             html += `</tr>`;
         }
-
+        
         html += `</table>`;
     }
-
+    
     html += `</div>`;
     html += `</div>`;
     return html;
+}
+
+// 🔧 FUNGSI BARU: Hitung Somers'd dengan signifikansi sesuai rumus SPSS
+function somersDWithSignificance(x, y) {
+    const n = Math.min(x.length, y.length);
+    if (n < 3) return { d: 0, pValue: 1, isSignificant: false, interpretation: 'Data tidak cukup' };
+    
+    // Filter data yang valid
+    const pairs = [];
+    for (let i = 0; i < n; i++) {
+        if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
+            pairs.push({ x: x[i], y: y[i] });
+        }
+    }
+    
+    const m = pairs.length;
+    if (m < 3) return { d: 0, pValue: 1, isSignificant: false, interpretation: 'Data tidak cukup' };
+    
+    // Hitung concordant, discordant, dan ties
+    let concordant = 0;
+    let discordant = 0;
+    let tiesX = 0; // Ties pada X (independent)
+    let tiesY = 0; // Ties pada Y (dependent)
+    let tiesXY = 0; // Ties pada keduanya
+    
+    for (let i = 0; i < m; i++) {
+        for (let j = i + 1; j < m; j++) {
+            const xDiff = pairs[i].x - pairs[j].x;
+            const yDiff = pairs[i].y - pairs[j].y;
+            
+            if (xDiff === 0 && yDiff === 0) {
+                tiesXY++;
+            } else if (xDiff === 0) {
+                tiesX++;
+            } else if (yDiff === 0) {
+                tiesY++;
+            } else if ((xDiff > 0 && yDiff > 0) || (xDiff < 0 && yDiff < 0)) {
+                concordant++;
+            } else {
+                discordant++;
+            }
+        }
+    }
+    
+    // RUMUS SOMERS'D ASIMETRIS Y|X (Y dependent pada X independent)
+    // D(Y|X) = (C - D) / (C + D + Ty)
+    const denominator = concordant + discordant + tiesY;
+    const d = denominator > 0 ? (concordant - discordant) / denominator : 0;
+    
+    // Hitung standard error dan signifikansi
+    const se = calculateSomersDSE(concordant, discordant, tiesX, tiesY, tiesXY, m);
+    const z = se > 0 ? Math.abs(d) / se : 0;
+    const pValue = 2 * (1 - normalCDF(z)); // Two-tailed test
+    
+    // Interpretasi
+    const absD = Math.abs(d);
+    let interpretation = '';
+    if (absD >= 0.8) interpretation = d > 0 ? 'Sangat Kuat Positif' : 'Sangat Kuat Negatif';
+    else if (absD >= 0.6) interpretation = d > 0 ? 'Kuat Positif' : 'Kuat Negatif';
+    else if (absD >= 0.4) interpretation = d > 0 ? 'Sedang Positif' : 'Sedang Negatif';
+    else if (absD >= 0.2) interpretation = d > 0 ? 'Lemah Positif' : 'Lemah Negatif';
+    else interpretation = 'Sangat Lemah / Tidak Ada Asosiasi';
+    
+    return {
+        d: parseFloat(d.toFixed(4)),
+        concordant,
+        discordant,
+        tiesX,
+        tiesY,
+        tiesXY,
+        standardError: se,
+        zStat: z,
+        pValue: parseFloat(pValue.toFixed(4)),
+        isSignificant: pValue < 0.05,
+        interpretation
+    };
+}
+
+// 🔧 FUNGSI BARU: Hitung standard error untuk Somers'd
+function calculateSomersDSE(C, D, Tx, Ty, Txy, n) {
+    const totalPairs = n * (n - 1) / 2;
+    const validPairs = C + D + Ty;
+    
+    if (validPairs === 0 || n < 3) return 0;
+    
+    // Simplified SE formula untuk Somers'd
+    const d = (C - D) / validPairs;
+    const se = Math.sqrt((1 - d * d) / validPairs);
+    
+    return parseFloat(se.toFixed(4));
+}
+
+// 🔧 FUNGSI BARU: Cumulative distribution function untuk normal distribution
+function normalCDF(z) {
+    // Approximation of the standard normal CDF
+    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    const d = 0.3989423 * Math.exp(-z * z / 2);
+    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z > 0 ? 1 - p : p;
 }
 
 function toggleCollapsible(el) { el.classList.toggle('collapsed'); el.nextElementSibling.classList.toggle('expanded'); }
