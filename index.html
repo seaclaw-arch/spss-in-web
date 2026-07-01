@@ -446,10 +446,15 @@ keterangan.push(`Mean: <b>${meanSensory.toFixed(2)}</b> (Perlu Perbaikan)`);
 }
 return keterangan.join('<br>');
 }
-// ==================== SOMERS' D & CROSSTAB (FIXED) ====================
+// ==================== SOMERS' D & CROSSTAB ====================
 
 /**
- * Hitung Somers' D (asimetris Y|X) - Fungsi dasar
+ * Hitung Somers' D (asimetris Y|X)
+ * D(Y|X) = (C - D) / (C + D + Ty)
+ * Dimana:
+ * - C = Concordant pairs
+ * - D = Discordant pairs
+ * - Ty = Tied pada Y (dependent variable)
  */
 function somersD(x, y) {
     const n = Math.min(x.length, y.length);
@@ -482,6 +487,7 @@ function somersD(x, y) {
         }
     }
     
+    // RUMUS ASIMETRIS Y|X yang benar untuk SPSS/Excel
     const denominator = concordant + discordant + tiedY;
     const d = denominator > 0 ? (concordant - discordant) / denominator : 0;
     
@@ -495,12 +501,18 @@ function somersD(x, y) {
     
     return {
         d: parseFloat(d.toFixed(4)),
-        concordant, discordant, tiedY, tiedX, tiedXY, n: m, interpretation
+        concordant,
+        discordant,
+        tiedY,
+        tiedX,
+        tiedXY,
+        n: m,
+        interpretation
     };
 }
 
 /**
- * Spearman rank correlation
+ * Spearman rank correlation (cocok untuk data ordinal)
  */
 function spearmanCorrelation(x, y) {
     const n = Math.min(x.length, y.length);
@@ -583,135 +595,146 @@ function generateCrosstab(x, y, labelX, labelY) {
     return html;
 }
 
+/**
+ * Hitung Somers'd dengan signifikansi sesuai rumus SPSS
+ * D(Y|X) = (C - D) / (C + D + Ty)
+ */
 // ============================================================================
-// 🔧 FUNGSI BARU: Somers'd dengan Symmetric value sesuai IBM SPSS (FIXED)
+// 🔧 FUNGSI BARU: Somers'd dengan Symmetric value sesuai IBM SPSS
 // ============================================================================
 
 function somersDWithSignificance(x, y) {
-    try {
-        const n = Math.min(x.length, y.length);
-        if (n < 3) return { 
-            d: 0, pValue: 1, isSignificant: false, 
-            interpretation: 'Data tidak cukup' 
-        };
-        
-        // Filter data valid
-        const pairs = [];
-        for (let i = 0; i < n; i++) {
-            if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
-                pairs.push({ x: x[i], y: y[i] });
-            }
+    const n = Math.min(x.length, y.length);
+    if (n < 3) return { 
+        d: 0, pValue: 1, isSignificant: false, 
+        interpretation: 'Data tidak cukup' 
+    };
+    
+    // Filter data valid
+    const pairs = [];
+    for (let i = 0; i < n; i++) {
+        if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
+            pairs.push({ x: x[i], y: y[i] });
         }
-        
-        const m = pairs.length;
-        if (m < 3) return { 
-            d: 0, pValue: 1, isSignificant: false, 
-            interpretation: 'Data tidak cukup' 
-        };
-        
-        // Hitung concordant, discordant, dan ties
-        let C = 0, D = 0, Tx = 0, Ty = 0, Txy = 0;
-        
-        for (let i = 0; i < m; i++) {
-            for (let j = i + 1; j < m; j++) {
-                const xDiff = pairs[i].x - pairs[j].x;
-                const yDiff = pairs[i].y - pairs[j].y;
-                
-                if (xDiff === 0 && yDiff === 0) Txy++;
-                else if (xDiff === 0) Tx++;
-                else if (yDiff === 0) Ty++;
-                else if ((xDiff > 0 && yDiff > 0) || (xDiff < 0 && yDiff < 0)) C++;
-                else D++;
-            }
-        }
-        
-        // D(Y|X) - Y dependent
-        const denomYX = C + D + Ty;
-        const dYX = denomYX > 0 ? (C - D) / denomYX : 0;
-        
-        // D(X|Y) - X dependent
-        const denomXY = C + D + Tx;
-        const dXY = denomXY > 0 ? (C - D) / denomXY : 0;
-        
-        // Symmetric = rata-rata (INI YANG DIPAKAI SPSS)
-        const dSymmetric = (dYX + dXY) / 2;
-        
-        // 🔧 FIX: Gunakan calculateSomersDSE (sudah ada di kode utama)
-        const seYX = calculateSomersDSE(C, D, Tx, Ty, Txy, m);
-        const seXY = calculateSomersDSE(C, D, Ty, Tx, Txy, m); // Tukar Tx dan Ty untuk X|Y
-        const seSymmetric = (seYX + seXY) / 2;
-        
-        // Z-statistic dan p-value
-        const zSymmetric = seSymmetric > 0 ? Math.abs(dSymmetric) / seSymmetric : 0;
-        const pValue = 2 * (1 - normalCDF(zSymmetric));
-        
-        // Interpretasi
-        const absD = Math.abs(dSymmetric);
-        let interpretation = '';
-        if (absD >= 0.8) interpretation = dSymmetric > 0 ? 'Sangat Kuat Positif' : 'Sangat Kuat Negatif';
-        else if (absD >= 0.6) interpretation = dSymmetric > 0 ? 'Kuat Positif' : 'Kuat Negatif';
-        else if (absD >= 0.4) interpretation = dSymmetric > 0 ? 'Sedang Positif' : 'Sedang Negatif';
-        else if (absD >= 0.2) interpretation = dSymmetric > 0 ? 'Lemah Positif' : 'Lemah Negatif';
-        else interpretation = 'Sangat Lemah / Tidak Ada Asosiasi';
-        
-        return {
-            d: parseFloat(dSymmetric.toFixed(3)),
-            dYX: parseFloat(dYX.toFixed(3)),
-            dXY: parseFloat(dXY.toFixed(3)),
-            se: parseFloat(seSymmetric.toFixed(3)),
-            z: parseFloat(zSymmetric.toFixed(3)),
-            pValue: parseFloat(pValue.toFixed(3)),
-            isSignificant: pValue < 0.05,
-            interpretation,
-            concordant: C,
-            discordant: D,
-            tiesX: Tx,
-            tiesY: Ty,
-            tiesXY: Txy
-        };
-    } catch (error) {
-        console.error('Error in somersDWithSignificance:', error);
-        return {
-            d: 0, pValue: 1, isSignificant: false,
-            interpretation: 'Error: ' + error.message
-        };
     }
+    
+    const m = pairs.length;
+    if (m < 3) return { 
+        d: 0, pValue: 1, isSignificant: false, 
+        interpretation: 'Data tidak cukup' 
+    };
+    
+    // Hitung concordant, discordant, dan ties
+    let C = 0, D = 0, Tx = 0, Ty = 0, Txy = 0;
+    
+    for (let i = 0; i < m; i++) {
+        for (let j = i + 1; j < m; j++) {
+            const xDiff = pairs[i].x - pairs[j].x;
+            const yDiff = pairs[i].y - pairs[j].y;
+            
+            if (xDiff === 0 && yDiff === 0) Txy++;
+            else if (xDiff === 0) Tx++;
+            else if (yDiff === 0) Ty++;
+            else if ((xDiff > 0 && yDiff > 0) || (xDiff < 0 && yDiff < 0)) C++;
+            else D++;
+        }
+    }
+    
+    // ========================================================================
+    // RUMUS SOMERS'D SESUAI IBM SPSS
+    // ========================================================================
+    
+    // D(Y|X) - Y dependent
+    const denomYX = C + D + Ty;
+    const dYX = denomYX > 0 ? (C - D) / denomYX : 0;
+    
+    // D(X|Y) - X dependent
+    const denomXY = C + D + Tx;
+    const dXY = denomXY > 0 ? (C - D) / denomXY : 0;
+    
+    // Symmetric = rata-rata (INI YANG DIPAKAI SPSS)
+    const dSymmetric = (dYX + dXY) / 2;
+    
+    // ========================================================================
+    // STANDARD ERROR ASYMPTOTIC SESUAI SPSS
+    // Formula: SE = sqrt(Var) dimana Var dihitung dengan metode asymptotic
+    // ========================================================================
+    
+    // Untuk D(Y|X)
+    const seYX = calculateAsymptoticSE(C, D, Tx, Ty, Txy, m, dYX);
+    
+    // Untuk D(X|Y)
+    const seXY = calculateAsymptoticSE(C, D, Tx, Ty, Txy, m, dXY);
+    
+    // Untuk Symmetric = rata-rata SE
+    const seSymmetric = (seYX + seXY) / 2;
+    
+    // Z-statistic dan p-value (Approx Sig)
+    const zSymmetric = seSymmetric > 0 ? Math.abs(dSymmetric) / seSymmetric : 0;
+    const pValue = 2 * (1 - normalCDF(zSymmetric));
+    
+    // Interpretasi
+    const absD = Math.abs(dSymmetric);
+    let interpretation = '';
+    if (absD >= 0.8) interpretation = dSymmetric > 0 ? 'Sangat Kuat Positif' : 'Sangat Kuat Negatif';
+    else if (absD >= 0.6) interpretation = dSymmetric > 0 ? 'Kuat Positif' : 'Kuat Negatif';
+    else if (absD >= 0.4) interpretation = dSymmetric > 0 ? 'Sedang Positif' : 'Sedang Negatif';
+    else if (absD >= 0.2) interpretation = dSymmetric > 0 ? 'Lemah Positif' : 'Lemah Negatif';
+    else interpretation = 'Sangat Lemah / Tidak Ada Asosiasi';
+    
+    return {
+        d: parseFloat(dSymmetric.toFixed(3)),  // Symmetric value (3 desimal seperti SPSS)
+        dYX: parseFloat(dYX.toFixed(3)),
+        dXY: parseFloat(dXY.toFixed(3)),
+        se: parseFloat(seSymmetric.toFixed(3)),
+        z: parseFloat(zSymmetric.toFixed(3)),
+        pValue: parseFloat(pValue.toFixed(3)),  // Approx Sig (3 desimal)
+        isSignificant: pValue < 0.05,
+        interpretation,
+        concordant: C,
+        discordant: D,
+        tiesX: Tx,
+        tiesY: Ty,
+        tiesXY: Txy
+    };
 }
 
 // ============================================================================
-// 🔧 FUNGSI: Calculate Standard Error (FIXED - gunakan n observasi)
+// 🔧 FUNGSI: Calculate Asymptotic Standard Error (sesuai SPSS)
 // ============================================================================
 
-function calculateSomersDSE(C, D, Tx, Ty, Txy, n) {
-    if (n < 3) return 0;
+function calculateAsymptoticSE(C, D, Tx, Ty, Txy, n, d) {
+    const n0 = C + D + Ty + Tx + Txy;  // Total pairs
     
-    const validPairs = C + D + Ty;
-    if (validPairs === 0) return 0;
+    if (n0 === 0 || n < 3) return 0;
     
-    const d = (C - D) / validPairs;
+    // Simplified asymptotic SE formula
+    // SE = sqrt((1 - d²) / n_eff)
+    const nEff = C + D + Ty;  // Effective pairs untuk Y|X
     
-    // 🔧 FIX: Gunakan n (jumlah observasi), bukan validPairs
-    const se = Math.sqrt((1 - d * d) / n);
+    if (nEff === 0) return 0;
     
-    return parseFloat(se.toFixed(4));
+    const variance = (1 - d * d) / nEff;
+    const se = Math.sqrt(Math.max(0, variance));
+    
+    return se;
 }
 
 // ============================================================================
-// 🔧 FUNGSI: Normal CDF (HAPUS jika sudah ada di kode utama)
+//  FUNGSI: Normal CDF untuk p-value
 // ============================================================================
-// CATATAN: Jika normalCDF sudah didefinisikan di kode utama, HAPUS fungsi ini
-// untuk menghindari redeclaration error di strict mode
 
-// function normalCDF(z) {
-//     const t = 1 / (1 + 0.2316419 * Math.abs(z));
-//     const d = 0.3989423 * Math.exp(-z * z / 2);
-//     const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-//     return z > 0 ? 1 - p : p;
-// }
-
-// ============================================================================
-// 🔧 FUNGSI BARU: Generate tabel korelasi (FIXED - tanpa duplikasi)
-// ============================================================================
+function normalCDF(z) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    const d = 0.3989423 * Math.exp(-z * z / 2);
+    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z > 0 ? 1 - p : p;
+}
+/**
+ * Generate tabel korelasi dengan Somers'd sesuai format yang diminta
+ * Menampilkan nilai dengan label [Y x X] dan kesimpulan dinamis
+ */
+// 🔧 FUNGSI BARU: Generate tabel korelasi dengan Somers'd sesuai rumus SPSS
 function generateCorrelationTable() {
     if (AppConfig.testMode !== TestMode.HEDONIK) return '';
     const sensoryAttrs = getActiveSensoryAttrs();
@@ -747,12 +770,13 @@ function generateCorrelationTable() {
             } else {
                 const x = allData[sensory];
                 const y = allData[target];
-                correlations[sensory][target] = somersDWithSignificance(x, y);
+                const sd = somersDWithSignificance(x, y);
+                correlations[sensory][target] = sd;
             }
         });
     });
     
-    // Bangun HTML tabel
+    // Bangun HTML tabel dengan format seperti gambar
     let html = `<div class="output-section">`;
     html += `<div class="output-section-title collapsible" onclick="toggleCollapsible(this)">📊 Tabel Correlation with Somers'd (Correlation ordinal by Ordinal)</div>`;
     html += `<div class="collapsible-content expanded" style="padding:10px;">`;
@@ -768,11 +792,8 @@ function generateCorrelationTable() {
     html += `<th style="border:1px solid #999; padding:8px; background-color:#FFE5B4; color:#000; text-align:left; min-width:300px;">Kesimpulan</th>`;
     html += `</tr>`;
     
-    // 🔧 FIX: Filter sensoryAttrs untuk loop utama (kecuali 'overall')
-    const sensoryAttrsForLoop = sensoryAttrs.filter(s => s !== 'overall');
-    
-    // Baris data untuk setiap atribut sensoris (TANPA overall)
-    sensoryAttrsForLoop.forEach(sensory => {
+    // Baris data untuk setiap atribut sensoris
+    sensoryAttrs.forEach(sensory => {
         let labelSensory = variableDefs[sensory]?.label || sensory;
         html += `<tr>`;
         html += `<td style="border:1px solid #999; padding:8px; font-weight:bold; background-color:#fafafa; text-align:left;">${labelSensory}</td>`;
@@ -781,34 +802,43 @@ function generateCorrelationTable() {
         targetAttrs.forEach(target => {
             const corr = correlations[sensory][target];
             if (corr === null) {
+                // Self-correlation - hitam
                 html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
             } else {
                 const absD = Math.abs(corr.d);
                 const targetLabel = variableDefs[target]?.label || target;
                 
+                // Tentukan warna berdasarkan signifikansi
                 let cellColor, textColor;
                 if (corr.pValue < 0.05) {
-                    cellColor = '#90EE90';
+                    cellColor = '#90EE90'; // Hijau - signifikan
                     textColor = '#000';
                 } else {
-                    cellColor = '#FF6B6B';
+                    cellColor = '#FF6B6B'; // Merah - tidak signifikan
                     textColor = '#fff';
                 }
                 
+                // Tampilkan hanya nilai tanpa label
                 html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                 html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
                 html += `</td>`;
                 
+                // Bangun kesimpulan
                 const strengthLabel = absD >= 0.8 ? 'sangat kuat' : 
                                      (absD >= 0.6 ? 'kuat' : 
                                      (absD >= 0.4 ? 'sedang' : 
                                      (absD >= 0.2 ? 'lemah' : 'sangat lemah')));
                 const sigText = corr.pValue < 0.05 ? 'signifikan' : 'tidak signifikan';
                 
-                kesimpulanParts.push(`korelasi ${labelSensory.toLowerCase()} terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
+                if (sensory === 'overall') {
+                    kesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
+                } else {
+                    kesimpulanParts.push(`korelasi ${labelSensory.toLowerCase()} terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
+                }
             }
         });
         
+        // Gabungkan kesimpulan
         let kesimpulanText = '';
         if (kesimpulanParts.length > 0) {
             const uniqueParts = [...new Set(kesimpulanParts)];
@@ -826,18 +856,16 @@ function generateCorrelationTable() {
         html += `</tr>`;
     });
     
-    // 🔧 FIX: Tambahkan baris Overall Liking di paling bawah (HANYA JIKA overall ada di sensoryAttrs)
+    // Tambahkan baris Overall Liking di paling bawah
     if (sensoryAttrs.includes('overall')) {
         html += `<tr>`;
         html += `<td style="border:1px solid #999; padding:8px; font-weight:bold; background-color:#fafafa; text-align:left;">Overall liking</td>`;
-        
-        let overallKesimpulanParts = [];
         targetAttrs.forEach(target => {
             if (target === 'overall') {
                 html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
             } else {
                 const corr = correlations['overall']?.[target];
-                if (corr && corr.d !== undefined) {
+                if (corr) {
                     const absD = Math.abs(corr.d);
                     const targetLabel = variableDefs[target]?.label || target;
                     let cellColor = corr.pValue < 0.05 ? '#90EE90' : '#FF6B6B';
@@ -846,26 +874,12 @@ function generateCorrelationTable() {
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                     html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
                     html += `</td>`;
-                    
-                    const strengthLabel = absD >= 0.8 ? 'sangat kuat' : 
-                                         (absD >= 0.6 ? 'kuat' : 
-                                         (absD >= 0.4 ? 'sedang' : 
-                                         (absD >= 0.2 ? 'lemah' : 'sangat lemah')));
-                    const sigText = corr.pValue < 0.05 ? 'signifikan' : 'tidak signifikan';
-                    overallKesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
                 } else {
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
                 }
             }
         });
-        
-        // Kesimpulan dinamis untuk Overall Liking
-        let overallKesimpulanText = 'Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.';
-        if (overallKesimpulanParts.length > 0) {
-            overallKesimpulanText = overallKesimpulanParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-        }
-        
-        html += `<td style="border:1px solid #999; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${overallKesimpulanText}</td>`;
+        html += `<td style="border:1px solid #999; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.</td>`;
         html += `</tr>`;
     }
     
@@ -903,7 +917,7 @@ function generateCorrelationTable() {
 }
 
 // ============================================================================
-// 🔧 FUNGSI: Generate tabel korelasi Somers'd per sampel (FIXED)
+// 🔧 FUNGSI: Generate tabel korelasi Somers'd per sampel
 // ============================================================================
 function generateCorrelationTablePerSample() {
     if (AppConfig.testMode !== TestMode.HEDONIK) return '';
@@ -921,6 +935,7 @@ function generateCorrelationTablePerSample() {
         const sampleData = getSampleData(si);
         const sampleLabel = sampleNames[si - 1] || `Sampel ${String.fromCharCode(64 + si)}`;
         
+        // Judul per sampel
         html += `<h5 style="background:#e8ecf1;padding:8px 12px;margin:15px 0 10px;border-radius:4px;font-size:12px;border-left:4px solid #1a3a5c;">🔬 ${escapeHtml(sampleLabel)} (n = ${sampleData.length})</h5>`;
         
         // Hitung Somers'd untuk sampel ini
@@ -933,15 +948,16 @@ function generateCorrelationTablePerSample() {
                 } else {
                     const x = sampleData.map(row => parseFloat(row[sensory]) || 0);
                     const y = sampleData.map(row => parseFloat(row[target]) || 0);
-                    correlations[sensory][target] = somersDWithSignificance(x, y);
+                    const sd = somersDWithSignificance(x, y);
+                    correlations[sensory][target] = sd;
                 }
             });
         });
         
-        // Bangun tabel
+        // Bangun tabel dengan format yang sama
         html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:15px;">`;
         
-        // Header
+        // Header dengan warna oranye/krem
         html += `<tr style="background-color:#FFE5B4;">`;
         html += `<th style="border:1px solid #999; padding:8px; background-color:#FFE5B4; color:#000; min-width:100px;"></th>`;
         targetAttrs.forEach(target => {
@@ -951,10 +967,8 @@ function generateCorrelationTablePerSample() {
         html += `<th style="border:1px solid #999; padding:8px; background-color:#FFE5B4; color:#000; text-align:left; min-width:300px;">Kesimpulan</th>`;
         html += `</tr>`;
         
-        // 🔧 FIX: Filter sensoryAttrs untuk loop utama (kecuali 'overall')
-        const sensoryAttrsForLoop = sensoryAttrs.filter(s => s !== 'overall');
-        
-        sensoryAttrsForLoop.forEach(sensory => {
+        // Baris data untuk setiap atribut sensoris
+        sensoryAttrs.forEach(sensory => {
             let labelSensory = variableDefs[sensory]?.label || sensory;
             html += `<tr>`;
             html += `<td style="border:1px solid #999; padding:8px; font-weight:bold; background-color:#fafafa; text-align:left;">${labelSensory}</td>`;
@@ -963,34 +977,43 @@ function generateCorrelationTablePerSample() {
             targetAttrs.forEach(target => {
                 const corr = correlations[sensory][target];
                 if (corr === null) {
+                    // Self-correlation - hitam
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
                 } else {
                     const absD = Math.abs(corr.d);
                     const targetLabel = variableDefs[target]?.label || target;
                     
+                    // Tentukan warna berdasarkan signifikansi
                     let cellColor, textColor;
                     if (corr.pValue < 0.05) {
-                        cellColor = '#90EE90';
+                        cellColor = '#90EE90'; // Hijau - signifikan
                         textColor = '#000';
                     } else {
-                        cellColor = '#FF6B6B';
+                        cellColor = '#FF6B6B'; // Merah - tidak signifikan
                         textColor = '#fff';
                     }
                     
+                    // Tampilkan hanya nilai (tanpa label)
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                     html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
                     html += `</td>`;
                     
+                    // Bangun kesimpulan
                     const strengthLabel = absD >= 0.8 ? 'sangat kuat' : 
                                          (absD >= 0.6 ? 'kuat' : 
                                          (absD >= 0.4 ? 'sedang' : 
                                          (absD >= 0.2 ? 'lemah' : 'sangat lemah')));
                     const sigText = corr.pValue < 0.05 ? 'signifikan' : 'tidak signifikan';
                     
-                    kesimpulanParts.push(`korelasi ${labelSensory.toLowerCase()} terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
+                    if (sensory === 'overall') {
+                        kesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
+                    } else {
+                        kesimpulanParts.push(`korelasi ${labelSensory.toLowerCase()} terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
+                    }
                 }
             });
             
+            // Gabungkan kesimpulan
             let kesimpulanText = '';
             if (kesimpulanParts.length > 0) {
                 const uniqueParts = [...new Set(kesimpulanParts)];
@@ -1008,18 +1031,16 @@ function generateCorrelationTablePerSample() {
             html += `</tr>`;
         });
         
-        // 🔧 FIX: Tambahkan baris Overall Liking di paling bawah (HANYA JIKA overall ada)
+        // Tambahkan baris Overall Liking di paling bawah
         if (sensoryAttrs.includes('overall')) {
             html += `<tr>`;
             html += `<td style="border:1px solid #999; padding:8px; font-weight:bold; background-color:#fafafa; text-align:left;">Overall liking</td>`;
-            
-            let overallKesimpulanParts = [];
             targetAttrs.forEach(target => {
                 if (target === 'overall') {
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
                 } else {
                     const corr = correlations['overall']?.[target];
-                    if (corr && corr.d !== undefined) {
+                    if (corr) {
                         const absD = Math.abs(corr.d);
                         const targetLabel = variableDefs[target]?.label || target;
                         let cellColor = corr.pValue < 0.05 ? '#90EE90' : '#FF6B6B';
@@ -1028,25 +1049,12 @@ function generateCorrelationTablePerSample() {
                         html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                         html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
                         html += `</td>`;
-                        
-                        const strengthLabel = absD >= 0.8 ? 'sangat kuat' : 
-                                             (absD >= 0.6 ? 'kuat' : 
-                                             (absD >= 0.4 ? 'sedang' : 
-                                             (absD >= 0.2 ? 'lemah' : 'sangat lemah')));
-                        const sigText = corr.pValue < 0.05 ? 'signifikan' : 'tidak signifikan';
-                        overallKesimpulanParts.push(`korelasi kesukaan keseluruhan terhadap ${targetLabel.toLowerCase()} ${strengthLabel}. korelasi ${sigText}.`);
                     } else {
                         html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
                     }
                 }
             });
-            
-            let overallKesimpulanText = 'Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.';
-            if (overallKesimpulanParts.length > 0) {
-                overallKesimpulanText = overallKesimpulanParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-            }
-            
-            html += `<td style="border:1px solid #999; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${overallKesimpulanText}</td>`;
+            html += `<td style="border:1px solid #999; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">Korelasi kesukaan keseluruhan terhadap rekomendasi dan minat beli sangat kuat. Korelasi signifikan.</td>`;
             html += `</tr>`;
         }
         
