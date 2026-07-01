@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebSPSS v3.0 — Summary dab T2B </title>
+<title>WebSPSS v3.1 — Summary dab T2B </title>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 :root {
@@ -200,7 +200,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 <body>
 <div class="title-bar">
 <div style="display:flex;align-items:center;">
-<h1>📊 WebSPSS v3.0</h1>
+<h1>📊 WebSPSS v3.1</h1>
 <span id="modeIndicator" class="mode-indicator hedonik">HEDONIK</span>
 <span class="subtitle" style="margin-left:10px;font-size:10px;color:#a0c4ff;">STATISTICS PLATFORM</span>
 </div>
@@ -305,7 +305,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 <div class="output-content" id="outputContent">
 <div style="text-align:center;color:#aaa;padding:30px;">
 <p style="font-size:32px;">📊</p>
-<p><b>WebSPSS v3.0</b></p>
+<p><b>WebSPSS v3.1</b></p>
 <p style="font-size:10px;">ANOVA Sig Value + Spider Web Fix + Detail Conclusion</p>
 <p style="font-size:10px;margin-top:8px;">Klik <b>📥 2/3/4 Sampel</b> untuk memuat data, lalu <b>🚀 Analisis</b></p>
 </div>
@@ -314,7 +314,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 </div>
 <div class="footer-bar">
 <span id="statusLeft">Ready</span>
-<span id="statusBar">v3.0 | STATISTICS PLATFORM</span>
+<span id="statusBar">v3.1 | STATISTICS PLATFORM</span>
 </div>
 <script>
 'use strict';
@@ -1266,7 +1266,7 @@ html += `</div>`;
 html += `</div>`;
 return html;
 }
-function downloadSummaryPDF() { const html = generateDynamicSummaryHTML(); const pdfWindow = window.open('','_blank','width=1000,height=800'); if(!pdfWindow){alert('Popup diblokir!');return;} pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Summary</title><style>body{font-family:'Segoe UI',sans-serif;font-size:12px;padding:20px;}h2{color:#1a3a5c;border-bottom:3px solid #1a3a5c;}h3{color:#2c3e50;background:#e8ecf1;padding:8px 12px;border-left:5px solid #1a3a5c;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#34495e;color:white;padding:8px;}td{padding:6px 8px;border:1px solid #ddd;}p{line-height:1.8;text-align:justify;}</style></head><body><h1>📊 WebSPSS v3.0 — Summary</h1>${html}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`); pdfWindow.document.close(); }
+function downloadSummaryPDF() { const html = generateDynamicSummaryHTML(); const pdfWindow = window.open('','_blank','width=1000,height=800'); if(!pdfWindow){alert('Popup diblokir!');return;} pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Summary</title><style>body{font-family:'Segoe UI',sans-serif;font-size:12px;padding:20px;}h2{color:#1a3a5c;border-bottom:3px solid #1a3a5c;}h3{color:#2c3e50;background:#e8ecf1;padding:8px 12px;border-left:5px solid #1a3a5c;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#34495e;color:white;padding:8px;}td{padding:6px 8px;border:1px solid #ddd;}p{line-height:1.8;text-align:justify;}</style></head><body><h1>📊 WebSPSS v3.1 — Summary</h1>${html}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`); pdfWindow.document.close(); }
 async function downloadSummaryExcel() { try { const workbook = new ExcelJS.Workbook(); const headerStyle = { font:{bold:true,color:{argb:'FFFFFFFF'}},fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1A3A5C'}},alignment:{horizontal:'center',vertical:'middle'},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}}; const cellStyle = { font:{size:10},alignment:{horizontal:'center',vertical:'middle'},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} }; const ar = lastAnalysisResults?.anovaResults || {}; const targetEval = evaluateTargetFromResults(ar); const ws1 = workbook.addWorksheet('Informasi'); ws1.addRow(['SUMMARY']).font = {bold:true,size:14}; ws1.addRow(['Target', targetConfig.rawInput]); ws1.addRow(['Panelis', dataRows.length]); ws1.addRow(['Sampel', sampleNames.join(', ')]); const ws2 = workbook.addWorksheet('Evaluasi'); const parsed = parseTargetString(targetConfig.rawInput); if (parsed && !targetEval.error && targetEval.total>0) { const treatIndices = resolveTargetIndices(parsed.treatments); const baseIndices = resolveTargetIndices(parsed.baselines); const evalHeaders = ['Atribut']; treatIndices.forEach(i => evalHeaders.push(sampleNames[i])); baseIndices.forEach(i => evalHeaders.push(sampleNames[i])); evalHeaders.push('Status'); ws2.addRow(evalHeaders).eachCell(c => Object.assign(c, headerStyle)); targetEval.details.forEach(d => { const row = [d.attr]; d.treatMeans.forEach(t => row.push(t.mean.toFixed(2))); row.push(d.avgBaseMean.toFixed(2)); row.push(d.pass?'TERPENUHI':'TIDAK'); ws2.addRow(row).eachCell(c => Object.assign(c, cellStyle)); }); } ws2.columns.forEach(c => c.width=18); const buffer = await workbook.xlsx.writeBuffer(); const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `WebSPSS_Summary_${new Date().toISOString().slice(0,10)}.xlsx`; a.click(); URL.revokeObjectURL(url); } catch(e) { alert('Gagal: '+e.message); } }
 // ==================== MODE TOGGLE ====================
 function toggleTestMode() { if (dataRows.length > 0) { if (!confirm(`⚠️ Mengubah mode akan mempengaruhi data.\nLanjutkan?`)) return; } saveState(); AppConfig.testMode = AppConfig.testMode === TestMode.HEDONIK ? TestMode.DESKRIPTIF : TestMode.HEDONIK; const scale = getActiveScale(); if (AppConfig.testMode === TestMode.HEDONIK) activeVariables = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall','recommended','purchase_intent']; else activeVariables = ['penampilan','warna','aroma','tekstur','rasa','aftertaste','overall']; activeVariables.forEach(key => { if (variableDefs[key]) { if (key === 'overall') variableDefs[key].hedonik = AppConfig.testMode===TestMode.HEDONIK?'OVERALL LIKING':'OVERALL INTENSITY'; else variableDefs[key].hedonik = `${scale.prefix} ${variableDefs[key].label.toUpperCase()}`; } }); document.getElementById('btnToggleMode').textContent = `🔄 Mode: ${getModeLabel()}`; const ind = document.getElementById('modeIndicator'); ind.className = `mode-indicator ${AppConfig.testMode}`; ind.textContent = AppConfig.testMode.toUpperCase(); dataColumns = generateColumns(); editMode = false; activeCell = { row: 0, col: 0 }; selStart = null; selEnd = null; initTable(); clearOutput(); updateStatus(`🔄 Mode: ${getModeLabel()}`); }
@@ -1345,16 +1345,16 @@ function getRankClass(rank) { if (rank===1) return 'rank-1'; if (rank===2) retur
 function addOutputSection(title, content, isGold=false) { const od = document.getElementById('outputContent'); const s = document.createElement('div'); s.className = 'output-section'; s.innerHTML = `<div class="output-section-title${isGold?' gold':''}">${isGold?'🏅 ':''}${title}</div><div style="padding:10px;">${content}</div>`; od.appendChild(s); od.scrollTop = od.scrollHeight; }
 function clearOutput() { document.getElementById('outputContent').innerHTML = ''; lastAnalysisResults = null; updateStatus('Output cleared'); }
 function printOutput() { window.print(); }
-function updateStatus(msg) { document.getElementById('statusBar').textContent = 'v3.0 | ' + msg; document.getElementById('statusLeft').textContent = new Date().toLocaleTimeString(); }
+function updateStatus(msg) { document.getElementById('statusBar').textContent = 'v3.1 | ' + msg; document.getElementById('statusLeft').textContent = new Date().toLocaleTimeString(); }
 // ==================== EXPORT ====================
-function downloadPDF() { const outputHTML = document.getElementById('outputContent').innerHTML; const modeLabel = getModeLabel(); const pdfWindow = window.open('','_blank','width=1000,height=800'); if (!pdfWindow) { alert('Popup diblokir!'); return; } pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;border:1px solid #ddd;}canvas{max-width:100%;}</style></head><body><h2>📊 WebSPSS v3.0 — ${modeLabel}</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`); pdfWindow.document.close(); }
+function downloadPDF() { const outputHTML = document.getElementById('outputContent').innerHTML; const modeLabel = getModeLabel(); const pdfWindow = window.open('','_blank','width=1000,height=800'); if (!pdfWindow) { alert('Popup diblokir!'); return; } pdfWindow.document.write(`<!DOCTYPE html><html><head><title>WebSPSS Report</title><style>body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:20px;}.output-section{margin-bottom:16px;border:1px solid #ddd;}.output-table{width:100%;border-collapse:collapse;}.output-table th{background:#34495e;color:white;padding:5px 7px;border:1px solid #2c3e50;}.output-table td{padding:4px 7px;border:1px solid #ddd;}canvas{max-width:100%;}</style></head><body><h2>📊 WebSPSS v3.1 — ${modeLabel}</h2><p>${dataRows.length} Panelis | ${numSamples} Sampel | ${new Date().toLocaleString()}</p>${outputHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);}<\/script></body></html>`); pdfWindow.document.close(); }
 function downloadCSV() { let csv = '\uFEFF'; csv += `=== MODE: ${getModeLabel().toUpperCase()} ===\n=== DATA ===\n` + dataColumns.join(',') + '\n'; dataRows.forEach(row => { csv += dataColumns.map(c => { const v = row[c] !== undefined ? row[c] : ''; return String(v).includes(',') ? '"' + String(v).replace(/"/g, '""') + '"' : String(v); }).join(',') + '\n'; }); const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `webspss_${getModeLabel().toLowerCase()}_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url); }
 // ==================== EXPORT EXCEL UTAMA (LENGKAP) ====================
 async function downloadExcel() {
     try {
         updateStatus('⏳ Menyiapkan Excel Lengkap...');
         const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'WebSPSS v3.0';
+        workbook.creator = 'WebSPSS v3.1';
         workbook.created = new Date();
         
         const modeLabel = getModeLabel();
@@ -1819,7 +1819,7 @@ async function downloadSummaryExcel() {
         
         updateStatus('⏳ Menyiapkan Summary Excel...');
         const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'WebSPSS v3.0 Summary';
+        workbook.creator = 'WebSPSS v3.1 Summary';
         workbook.created = new Date();
         
         const ar = lastAnalysisResults.anovaResults;
@@ -2531,13 +2531,13 @@ if (sigAttrs.length > 0) { concHTML += `<li><b>Fokus Pengembangan:</b> Perbaiki 
 concHTML += `<li><b>Quality Control:</b> Lakukan monitoring berkala untuk menjaga konsistensi atribut kunci.</li>`;
 if (!isGold) concHTML += `<li><b>Analisis Lanjutan:</b> Disarankan menjalankan <b>Analisis Profesional</b> untuk mendapatkan uji normalitas, homogenitas, Friedman, dan Duncan yang lebih komprehensif.</li>`;
 concHTML += `</ol>`;
-concHTML += `<p style="margin-top:15px;"><em>${modelName} — WebSPSS v3.0. Mode: <b>${modeLabel}</b>. ${isGold?'SNI ISO 4121:2009 compliant.':''}</em></p></div>`;
+concHTML += `<p style="margin-top:15px;"><em>${modelName} — WebSPSS v3.1. Mode: <b>${modeLabel}</b>. ${isGold?'SNI ISO 4121:2009 compliant.':''}</em></p></div>`;
 addOutputSection('📝 Kesimpulan & Rekomendasi', concHTML, isGold);
 }
 // ==================== INIT ====================
 function init() { dataColumns = generateColumns(); initTable(); renderSampleNameInputs(); updateUndoRedoButtons(); document.getElementById('editorArea').addEventListener('click', function(e) { if (e.target === this) { clearSelection(); renderBody(); } }); document.getElementById('editorArea').focus(); }
 init();
-updateStatus(`v3.0 | Mode: ${getModeLabel()} | STATISTICS PLATFORM`);
+updateStatus(`v3.1 | Mode: ${getModeLabel()} | STATISTICS PLATFORM`);
 </script>
 </body>
 </html>
