@@ -699,21 +699,20 @@ function somersDWithSignificance(x, y) {
 // 🔧 FUNGSI: Calculate Asymptotic Standard Error (sesuai SPSS)
 // ============================================================================
 
-function calculateAsymptoticSE(C, D, Tx, Ty, Txy, n, d) {
-    const n0 = C + D + Ty + Tx + Txy;  // Total pairs
+function calculateSomersDSE(C, D, Tx, Ty, Txy, n) {
+    // n adalah jumlah observasi (bukan jumlah pasangan)
+    if (n < 3) return 0;
     
-    if (n0 === 0 || n < 3) return 0;
+    const validPairs = C + D + Ty;
+    if (validPairs === 0) return 0;
     
-    // Simplified asymptotic SE formula
-    // SE = sqrt((1 - d²) / n_eff)
-    const nEff = C + D + Ty;  // Effective pairs untuk Y|X
+    const d = (C - D) / validPairs;
     
-    if (nEff === 0) return 0;
+    // Formula SE yang sesuai SPSS: gunakan n (jumlah observasi), bukan validPairs
+    // SE = sqrt((1 - d²) / n)
+    const se = Math.sqrt((1 - d * d) / n);
     
-    const variance = (1 - d * d) / nEff;
-    const se = Math.sqrt(Math.max(0, variance));
-    
-    return se;
+    return parseFloat(se.toFixed(4));
 }
 
 // ============================================================================
@@ -727,23 +726,17 @@ function normalCDF(z) {
     return z > 0 ? 1 - p : p;
 }
 
-/**
- * Generate tabel korelasi dengan Somers'd sesuai format yang diminta
- * Menampilkan nilai dengan label [Y x X] dan kesimpulan dinamis
- */
+// 🔧 FUNGSI BARU: Generate tabel korelasi dengan Somers'd sesuai rumus SPSS
 function generateCorrelationTable() {
     if (AppConfig.testMode !== TestMode.HEDONIK) return '';
-    
     const sensoryAttrs = getActiveSensoryAttrs();
     const targetAttrs = getActiveTargetAttrs();
-    
     if (sensoryAttrs.length === 0 || targetAttrs.length === 0) return '';
     
     // Gabungkan semua data
     const allData = {};
     const allAnalysisAttrs = [...sensoryAttrs, ...targetAttrs];
     allAnalysisAttrs.forEach(key => { allData[key] = []; });
-    
     for (let s = 1; s <= numSamples; s++) {
         const sampleData = getSampleData(s);
         sampleData.forEach(row => {
@@ -753,11 +746,8 @@ function generateCorrelationTable() {
             });
         });
     }
-    
     const maxLen = Math.max(...Object.values(allData).map(arr => arr.length), 0);
     if (maxLen < 3) return '';
-    
-    // Pad arrays to same length
     Object.keys(allData).forEach(key => {
         while (allData[key].length < maxLen) allData[key].push(0);
     });
@@ -804,14 +794,11 @@ function generateCorrelationTable() {
         targetAttrs.forEach(target => {
             const corr = correlations[sensory][target];
             if (corr === null) {
-                // Tidak ada statistik (self-correlation) - hitam
+                // Self-correlation - hitam
                 html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
             } else {
                 const absD = Math.abs(corr.d);
                 const targetLabel = variableDefs[target]?.label || target;
-                
-                // Label korelasi dalam kurung siku
-                const correlationLabel = `[${targetLabel} x ${labelSensory.toLowerCase()}]`;
                 
                 // Tentukan warna berdasarkan signifikansi
                 let cellColor, textColor;
@@ -823,9 +810,9 @@ function generateCorrelationTable() {
                     textColor = '#fff';
                 }
                 
+                // Tampilkan hanya nilai tanpa label
                 html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                 html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
-                html += `<div style="font-size:9px; margin-top:3px; font-weight:normal;">${correlationLabel}</div>`;
                 html += `</td>`;
                 
                 // Bangun kesimpulan
@@ -861,7 +848,7 @@ function generateCorrelationTable() {
         html += `</tr>`;
     });
     
-    // Tambahkan baris Overall Liking jika ada
+    // Tambahkan baris Overall Liking di paling bawah
     if (sensoryAttrs.includes('overall')) {
         html += `<tr>`;
         html += `<td style="border:1px solid #999; padding:8px; font-weight:bold; background-color:#fafafa; text-align:left;">Overall liking</td>`;
@@ -873,13 +860,11 @@ function generateCorrelationTable() {
                 if (corr) {
                     const absD = Math.abs(corr.d);
                     const targetLabel = variableDefs[target]?.label || target;
-                    const correlationLabel = `[${targetLabel} x overall liking]`;
                     let cellColor = corr.pValue < 0.05 ? '#90EE90' : '#FF6B6B';
                     let textColor = corr.pValue < 0.05 ? '#000' : '#fff';
                     
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                     html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
-                    html += `<div style="font-size:9px; margin-top:3px; font-weight:normal;">${correlationLabel}</div>`;
                     html += `</td>`;
                 } else {
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
@@ -923,9 +908,9 @@ function generateCorrelationTable() {
     return html;
 }
 
-/**
- * Generate tabel korelasi per sampel dengan Somers'd
- */
+// ============================================================================
+// 🔧 FUNGSI: Generate tabel korelasi Somers'd per sampel
+// ============================================================================
 function generateCorrelationTablePerSample() {
     if (AppConfig.testMode !== TestMode.HEDONIK) return '';
     
@@ -942,7 +927,8 @@ function generateCorrelationTablePerSample() {
         const sampleData = getSampleData(si);
         const sampleLabel = sampleNames[si - 1] || `Sampel ${String.fromCharCode(64 + si)}`;
         
-        html += `<h5 style="background:#e8ecf1;padding:8px 12px;margin:10px 0 5px;border-radius:4px;font-size:11px;">🔬 ${escapeHtml(sampleLabel)}</h5>`;
+        // Judul per sampel
+        html += `<h5 style="background:#e8ecf1;padding:8px 12px;margin:15px 0 10px;border-radius:4px;font-size:12px;border-left:4px solid #1a3a5c;">🔬 ${escapeHtml(sampleLabel)} (n = ${sampleData.length})</h5>`;
         
         // Hitung Somers'd untuk sampel ini
         const correlations = {};
@@ -961,7 +947,9 @@ function generateCorrelationTablePerSample() {
         });
         
         // Bangun tabel dengan format yang sama
-        html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px;">`;
+        html += `<table class="output-table" style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:15px;">`;
+        
+        // Header dengan warna oranye/krem
         html += `<tr style="background-color:#FFE5B4;">`;
         html += `<th style="border:1px solid #999; padding:8px; background-color:#FFE5B4; color:#000; min-width:100px;"></th>`;
         targetAttrs.forEach(target => {
@@ -971,6 +959,7 @@ function generateCorrelationTablePerSample() {
         html += `<th style="border:1px solid #999; padding:8px; background-color:#FFE5B4; color:#000; text-align:left; min-width:300px;">Kesimpulan</th>`;
         html += `</tr>`;
         
+        // Baris data untuk setiap atribut sensoris
         sensoryAttrs.forEach(sensory => {
             let labelSensory = variableDefs[sensory]?.label || sensory;
             html += `<tr>`;
@@ -980,26 +969,28 @@ function generateCorrelationTablePerSample() {
             targetAttrs.forEach(target => {
                 const corr = correlations[sensory][target];
                 if (corr === null) {
+                    // Self-correlation - hitam
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
                 } else {
                     const absD = Math.abs(corr.d);
                     const targetLabel = variableDefs[target]?.label || target;
-                    const correlationLabel = `[${targetLabel} x ${labelSensory.toLowerCase()}]`;
                     
+                    // Tentukan warna berdasarkan signifikansi
                     let cellColor, textColor;
                     if (corr.pValue < 0.05) {
-                        cellColor = '#90EE90';
+                        cellColor = '#90EE90'; // Hijau - signifikan
                         textColor = '#000';
                     } else {
-                        cellColor = '#FF6B6B';
+                        cellColor = '#FF6B6B'; // Merah - tidak signifikan
                         textColor = '#fff';
                     }
                     
+                    // Tampilkan hanya nilai (tanpa label)
                     html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                     html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
-                    html += `<div style="font-size:9px; margin-top:3px; font-weight:normal;">${correlationLabel}</div>`;
                     html += `</td>`;
                     
+                    // Bangun kesimpulan
                     const strengthLabel = absD >= 0.8 ? 'sangat kuat' : 
                                          (absD >= 0.6 ? 'kuat' : 
                                          (absD >= 0.4 ? 'sedang' : 
@@ -1014,6 +1005,7 @@ function generateCorrelationTablePerSample() {
                 }
             });
             
+            // Gabungkan kesimpulan
             let kesimpulanText = '';
             if (kesimpulanParts.length > 0) {
                 const uniqueParts = [...new Set(kesimpulanParts)];
@@ -1031,7 +1023,7 @@ function generateCorrelationTablePerSample() {
             html += `</tr>`;
         });
         
-        // Baris Overall Liking
+        // Tambahkan baris Overall Liking di paling bawah
         if (sensoryAttrs.includes('overall')) {
             html += `<tr>`;
             html += `<td style="border:1px solid #999; padding:8px; font-weight:bold; background-color:#fafafa; text-align:left;">Overall liking</td>`;
@@ -1041,14 +1033,13 @@ function generateCorrelationTablePerSample() {
                 } else {
                     const corr = correlations['overall']?.[target];
                     if (corr) {
+                        const absD = Math.abs(corr.d);
                         const targetLabel = variableDefs[target]?.label || target;
-                        const correlationLabel = `[${targetLabel} x overall liking]`;
                         let cellColor = corr.pValue < 0.05 ? '#90EE90' : '#FF6B6B';
                         let textColor = corr.pValue < 0.05 ? '#000' : '#fff';
                         
                         html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:${cellColor}; color:${textColor}; vertical-align:middle;">`;
                         html += `<div style="font-weight:bold; font-size:13px;">${corr.d.toFixed(2)}</div>`;
-                        html += `<div style="font-size:9px; margin-top:3px; font-weight:normal;">${correlationLabel}</div>`;
                         html += `</td>`;
                     } else {
                         html += `<td style="border:1px solid #999; padding:8px; text-align:center; background-color:#000; color:#fff; vertical-align:middle;">-</td>`;
@@ -1060,6 +1051,14 @@ function generateCorrelationTablePerSample() {
         }
         
         html += `</table>`;
+        
+        // Note per sampel
+        html += `<div style="margin-top:5px; margin-bottom:20px; font-size:9px; color:#666;">`;
+        html += `<b>Note:</b> `;
+        html += `<span style="background:#90EE90; padding:2px 6px; border:1px solid #ccc; margin-right:5px;">Significant (p < 0.05)</span>`;
+        html += `<span style="background:#FF6B6B; padding:2px 6px; border:1px solid #ccc; color:white; margin-right:5px;">Not Significant (p ≥ 0.05)</span>`;
+        html += `<span style="background:#000; padding:2px 6px; border:1px solid #ccc; color:white;">No statistics computed</span>`;
+        html += `</div>`;
     }
     
     html += `</div>`;
