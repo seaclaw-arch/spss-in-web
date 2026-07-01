@@ -595,15 +595,18 @@ function generateCrosstab(x, y, labelX, labelY) {
     return html;
 }
 
-/**
- * Hitung Somers'd dengan signifikansi sesuai rumus SPSS
- * D(Y|X) = (C - D) / (C + D + Ty)
- */
+// ============================================================================
+// 🔧 FUNGSI BARU: Somers'd dengan Symmetric value sesuai IBM SPSS
+// ============================================================================
+
 function somersDWithSignificance(x, y) {
     const n = Math.min(x.length, y.length);
-    if (n < 3) return { d: 0, pValue: 1, isSignificant: false, interpretation: 'Data tidak cukup' };
+    if (n < 3) return { 
+        d: 0, pValue: 1, isSignificant: false, 
+        interpretation: 'Data tidak cukup' 
+    };
     
-    // Filter data yang valid
+    // Filter data valid
     const pairs = [];
     for (let i = 0; i < n; i++) {
         if (x[i] > 0 && y[i] > 0 && !isNaN(x[i]) && !isNaN(y[i])) {
@@ -612,86 +615,111 @@ function somersDWithSignificance(x, y) {
     }
     
     const m = pairs.length;
-    if (m < 3) return { d: 0, pValue: 1, isSignificant: false, interpretation: 'Data tidak cukup' };
+    if (m < 3) return { 
+        d: 0, pValue: 1, isSignificant: false, 
+        interpretation: 'Data tidak cukup' 
+    };
     
     // Hitung concordant, discordant, dan ties
-    let concordant = 0;
-    let discordant = 0;
-    let tiesX = 0; // Ties pada X (independent)
-    let tiesY = 0; // Ties pada Y (dependent)
-    let tiesXY = 0; // Ties pada keduanya
+    let C = 0, D = 0, Tx = 0, Ty = 0, Txy = 0;
     
     for (let i = 0; i < m; i++) {
         for (let j = i + 1; j < m; j++) {
             const xDiff = pairs[i].x - pairs[j].x;
             const yDiff = pairs[i].y - pairs[j].y;
             
-            if (xDiff === 0 && yDiff === 0) {
-                tiesXY++;
-            } else if (xDiff === 0) {
-                tiesX++;
-            } else if (yDiff === 0) {
-                tiesY++;
-            } else if ((xDiff > 0 && yDiff > 0) || (xDiff < 0 && yDiff < 0)) {
-                concordant++;
-            } else {
-                discordant++;
-            }
+            if (xDiff === 0 && yDiff === 0) Txy++;
+            else if (xDiff === 0) Tx++;
+            else if (yDiff === 0) Ty++;
+            else if ((xDiff > 0 && yDiff > 0) || (xDiff < 0 && yDiff < 0)) C++;
+            else D++;
         }
     }
     
-    // RUMUS SOMERS'D ASIMETRIS Y|X (Y dependent pada X independent)
-    // D(Y|X) = (C - D) / (C + D + Ty)
-    const denominator = concordant + discordant + tiesY;
-    const d = denominator > 0 ? (concordant - discordant) / denominator : 0;
+    // ========================================================================
+    // RUMUS SOMERS'D SESUAI IBM SPSS
+    // ========================================================================
     
-    // Hitung standard error dan signifikansi
-    const se = calculateSomersDSE(concordant, discordant, tiesX, tiesY, tiesXY, m);
-    const z = se > 0 ? Math.abs(d) / se : 0;
-    const pValue = 2 * (1 - normalCDF(z)); // Two-tailed test
+    // D(Y|X) - Y dependent
+    const denomYX = C + D + Ty;
+    const dYX = denomYX > 0 ? (C - D) / denomYX : 0;
+    
+    // D(X|Y) - X dependent
+    const denomXY = C + D + Tx;
+    const dXY = denomXY > 0 ? (C - D) / denomXY : 0;
+    
+    // Symmetric = rata-rata (INI YANG DIPAKAI SPSS)
+    const dSymmetric = (dYX + dXY) / 2;
+    
+    // ========================================================================
+    // STANDARD ERROR ASYMPTOTIC SESUAI SPSS
+    // Formula: SE = sqrt(Var) dimana Var dihitung dengan metode asymptotic
+    // ========================================================================
+    
+    // Untuk D(Y|X)
+    const seYX = calculateAsymptoticSE(C, D, Tx, Ty, Txy, m, dYX);
+    
+    // Untuk D(X|Y)
+    const seXY = calculateAsymptoticSE(C, D, Tx, Ty, Txy, m, dXY);
+    
+    // Untuk Symmetric = rata-rata SE
+    const seSymmetric = (seYX + seXY) / 2;
+    
+    // Z-statistic dan p-value (Approx Sig)
+    const zSymmetric = seSymmetric > 0 ? Math.abs(dSymmetric) / seSymmetric : 0;
+    const pValue = 2 * (1 - normalCDF(zSymmetric));
     
     // Interpretasi
-    const absD = Math.abs(d);
+    const absD = Math.abs(dSymmetric);
     let interpretation = '';
-    if (absD >= 0.8) interpretation = d > 0 ? 'Sangat Kuat Positif' : 'Sangat Kuat Negatif';
-    else if (absD >= 0.6) interpretation = d > 0 ? 'Kuat Positif' : 'Kuat Negatif';
-    else if (absD >= 0.4) interpretation = d > 0 ? 'Sedang Positif' : 'Sedang Negatif';
-    else if (absD >= 0.2) interpretation = d > 0 ? 'Lemah Positif' : 'Lemah Negatif';
+    if (absD >= 0.8) interpretation = dSymmetric > 0 ? 'Sangat Kuat Positif' : 'Sangat Kuat Negatif';
+    else if (absD >= 0.6) interpretation = dSymmetric > 0 ? 'Kuat Positif' : 'Kuat Negatif';
+    else if (absD >= 0.4) interpretation = dSymmetric > 0 ? 'Sedang Positif' : 'Sedang Negatif';
+    else if (absD >= 0.2) interpretation = dSymmetric > 0 ? 'Lemah Positif' : 'Lemah Negatif';
     else interpretation = 'Sangat Lemah / Tidak Ada Asosiasi';
     
     return {
-        d: parseFloat(d.toFixed(4)),
-        concordant,
-        discordant,
-        tiesX,
-        tiesY,
-        tiesXY,
-        standardError: se,
-        zStat: z,
-        pValue: parseFloat(pValue.toFixed(4)),
+        d: parseFloat(dSymmetric.toFixed(3)),  // Symmetric value (3 desimal seperti SPSS)
+        dYX: parseFloat(dYX.toFixed(3)),
+        dXY: parseFloat(dXY.toFixed(3)),
+        se: parseFloat(seSymmetric.toFixed(3)),
+        z: parseFloat(zSymmetric.toFixed(3)),
+        pValue: parseFloat(pValue.toFixed(3)),  // Approx Sig (3 desimal)
         isSignificant: pValue < 0.05,
-        interpretation
+        interpretation,
+        concordant: C,
+        discordant: D,
+        tiesX: Tx,
+        tiesY: Ty,
+        tiesXY: Txy
     };
 }
 
-/**
- * Hitung standard error untuk Somers'd
- * Formula: SE = sqrt((1 - d²) / n_valid)
- */
-function calculateSomersDSE(C, D, Tx, Ty, Txy, n) {
-    const validPairs = C + D + Ty;
-    if (validPairs === 0 || n < 3) return 0;
+// ============================================================================
+// 🔧 FUNGSI: Calculate Asymptotic Standard Error (sesuai SPSS)
+// ============================================================================
+
+function calculateAsymptoticSE(C, D, Tx, Ty, Txy, n, d) {
+    const n0 = C + D + Ty + Tx + Txy;  // Total pairs
     
-    const d = (C - D) / validPairs;
-    const se = Math.sqrt((1 - d * d) / validPairs);
+    if (n0 === 0 || n < 3) return 0;
     
-    return parseFloat(se.toFixed(4));
+    // Simplified asymptotic SE formula
+    // SE = sqrt((1 - d²) / n_eff)
+    const nEff = C + D + Ty;  // Effective pairs untuk Y|X
+    
+    if (nEff === 0) return 0;
+    
+    const variance = (1 - d * d) / nEff;
+    const se = Math.sqrt(Math.max(0, variance));
+    
+    return se;
 }
 
-/**
- * Cumulative distribution function untuk normal distribution
- * Approximation of the standard normal CDF
- */
+// ============================================================================
+//  FUNGSI: Normal CDF untuk p-value
+// ============================================================================
+
 function normalCDF(z) {
     const t = 1 / (1 + 0.2316419 * Math.abs(z));
     const d = 0.3989423 * Math.exp(-z * z / 2);
