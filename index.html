@@ -2146,11 +2146,12 @@ async function downloadExcel() {
                         if (sensory === target) {
                             rowData.push('-');
                         } else {
-                            const corr = somersDWithSignificance(allData[sensory], allData[target]);
-                            rowData.push(+corr.d.toFixed(3));
-                            const absD = Math.abs(corr.d);
+                            // --- PERBAIKAN LOGIKA & NAMA FUNGSI DI SINI ---
+                            const corr = somersDFullStats(allData[sensory], allData[target]);
+                            rowData.push(+corr.symmetric.value.toFixed(3));
+                            const absD = Math.abs(corr.symmetric.value);
                             const strength = absD >= 0.8 ? 'sangat kuat' : (absD >= 0.6 ? 'kuat' : (absD >= 0.4 ? 'sedang' : (absD >= 0.2 ? 'lemah' : 'sangat lemah')));
-                            const sig = corr.isSignificant ? 'signifikan' : 'tidak signifikan';
+                            const sig = corr.symmetric.p <= 0.05 ? 'signifikan' : 'tidak signifikan';
                             conclusions.push(`${variableDefs[sensory]?.label} terhadap ${variableDefs[target]?.label}: ${strength} dan ${sig}`);
                         }
                     });
@@ -2181,8 +2182,10 @@ async function downloadExcel() {
                             } else {
                                 const x = sampleData.map(row => parseFloat(row[sensory]) || 0);
                                 const y = sampleData.map(row => parseFloat(row[target]) || 0);
-                                const corr = somersDWithSignificance(x, y);
-                                rowData.push(`${corr.d.toFixed(3)} ${corr.isSignificant ? '✓' : '✗'}`);
+                                
+                                // --- PERBAIKAN LOGIKA & NAMA FUNGSI DI SINI ---
+                                const corr = somersDFullStats(x, y);
+                                rowData.push(`${corr.symmetric.value.toFixed(3)} ${corr.symmetric.p <= 0.05 ? '✓' : '✗'}`);
                             }
                         });
                         const row = ws8b.addRow(rowData);
