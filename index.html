@@ -394,15 +394,20 @@ function generateT2BSummaryTableForSample(sampleIndex) {
     html += `<th style="border:1px solid #ccc; padding:8px; text-align:left; width:35%;">Keterangan</th>`;
     html += `</tr>`;
     
-    rowAttrs.forEach(sensory => {
+   rowAttrs.forEach(sensory => {
         let labelSensory = variableDefs[sensory]?.label || sensory;
         html += `<tr>`;
         html += `<td style="border:1px solid #ccc; padding:8px; font-weight:bold; background-color:#f5f5f5;">${escapeHtml(labelSensory)}</td>`;
         targetAttrs.forEach(target => {
-            let jumlahRespondenT2 = sampleData.filter(row => parseFloat(row[target]) >= 4).length;
+            // PERBAIKAN LOGIKA: Hitung T2B berdasarkan irisan Atribut (Baris) DAN Target (Kolom)
+            let jumlahRespondenT2 = sampleData.filter(row => parseFloat(row[sensory]) >= 4 && parseFloat(row[target]) >= 4).length;
             let persentaseT2B = (jumlahRespondenT2 / totalResponden) * 100;
+            
+            // Warna tetap dipertahankan sesuai permintaan Anda
             let bgColor = persentaseT2B >= 80 ? 'background:#d4edda;' : (persentaseT2B >= 60 ? 'background:#fff3cd;' : 'background:#f8d7da;');
-            html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; ${bgColor}"><b>${persentaseT2B.toFixed(1)}%</b><br><small>(${jumlahRespondenT2}/${totalResponden})</small></td>`;
+            
+            // PERBAIKAN UI: Menghapus pecahan (jumlah/total) agar persis SPSS
+            html += `<td style="border:1px solid #ccc; padding:8px; text-align:center; ${bgColor}"><b>${persentaseT2B.toFixed(1)}%</b></td>`;
         });
         let teksKet = generateDynamicKeterangan(sampleData, sensory, targetAttrs, totalResponden);
         html += `<td style="border:1px solid #ccc; padding:8px; text-align:left; font-size:10px; color:#333; vertical-align:top;">${teksKet}</td>`;
@@ -1419,7 +1424,8 @@ async function downloadExcel() {
                     rowAttrs.forEach(sensory => {
                         const rowData = [variableDefs[sensory]?.label || sensory];
                         targetAttrs.forEach(target => {
-                            const count = sampleData.filter(row => parseFloat(row[target]) >= 4).length;
+                            // PERBAIKAN LOGIKA EXCEL: Irisan Atribut (Baris) DAN Target (Kolom)
+                            const count = sampleData.filter(row => parseFloat(row[sensory]) >= 4 && parseFloat(row[target]) >= 4).length;
                             const pct = totalResponden > 0 ? (count / totalResponden) * 100 : 0;
                             rowData.push(`${pct.toFixed(1)}%`);
                         });
