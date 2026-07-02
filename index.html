@@ -1276,11 +1276,36 @@ async function downloadExcel() {
                 ws6.addRow([`Atribut: ${attr}`]).font = subtitleStyle.font;
                 ws6.addRow(['Sampel', 'Mean', 'N', 'Huruf Duncan', 'Subset', 'Keterangan']);
                 ws6.getRow(ws6.rowCount).eachCell(cell => Object.assign(cell, headerStyle));
-                if (result.duncanGroups) {
-                    const indexed = result.sampleMeans.map((m, i) => ({ name: sampleNames[i], mean: m, group: result.duncanGroups[i], idx: i })).sort((a, b) => b.mean - a.mean);
+              if (result.duncanGroups) {
+                    const indexed = result.sampleMeans.map((m, i) => ({
+                        name: sampleNames[i], mean: m, group: result.duncanGroups[i], idx: i
+                    })).sort((a, b) => b.mean - a.mean);
+                    
                     indexed.forEach(item => {
-                        const row = ws6.addRow([ item.name, +item.mean.toFixed(3), dataRows.length, item.group, `Kelompok ${item.group}`, result.sig ? 'Berbeda signifikan' : 'Tidak berbeda signifikan' ]);
+                        // LOGIKA BARU EXCEL: Cari sampel mana yang berbeda
+                        const myLetters = item.group.split('');
+                        const diffSamples = indexed.filter(other => {
+                            const otherLetters = other.group.split('');
+                            return !myLetters.some(l => otherLetters.includes(l));
+                        }).map(other => other.name);
+                        
+                        const ketText = diffSamples.length > 0 
+                            ? `Berbeda nyata dengan: ${diffSamples.join(', ')}` 
+                            : `Tidak berbeda nyata dengan sampel lain`;
+
+                        const row = ws6.addRow([
+                            item.name, +item.mean.toFixed(3), dataRows.length, item.group,
+                            `Kelompok ${item.group}`, 
+                            ketText
+                        ]);
                         row.eachCell(cell => Object.assign(cell, cellStyle));
+                        
+                        // Beri blok warna hijau jika ada beda nyata
+                        if (diffSamples.length > 0) {
+                            Object.assign(row.getCell(6), sigGreen);
+                        } else {
+                            Object.assign(row.getCell(6), sigYellow);
+                        }
                     });
                 }
                 ws6.addRow([]);
@@ -2075,13 +2100,32 @@ async function downloadExcel() {
                     const indexed = result.sampleMeans.map((m, i) => ({
                         name: sampleNames[i], mean: m, group: result.duncanGroups[i], idx: i
                     })).sort((a, b) => b.mean - a.mean);
+                    
                     indexed.forEach(item => {
+                        // LOGIKA BARU EXCEL: Cari sampel mana yang berbeda
+                        const myLetters = item.group.split('');
+                        const diffSamples = indexed.filter(other => {
+                            const otherLetters = other.group.split('');
+                            return !myLetters.some(l => otherLetters.includes(l));
+                        }).map(other => other.name);
+                        
+                        const ketText = diffSamples.length > 0 
+                            ? `Berbeda nyata dengan: ${diffSamples.join(', ')}` 
+                            : `Tidak berbeda nyata dengan sampel lain`;
+
                         const row = ws6.addRow([
                             item.name, +item.mean.toFixed(3), dataRows.length, item.group,
                             `Kelompok ${item.group}`, 
-                            result.sig ? 'Berbeda signifikan antar kelompok' : 'Tidak berbeda signifikan'
+                            ketText
                         ]);
                         row.eachCell(cell => Object.assign(cell, cellStyle));
+                        
+                        // Beri blok warna hijau jika ada beda nyata
+                        if (diffSamples.length > 0) {
+                            Object.assign(row.getCell(6), sigGreen);
+                        } else {
+                            Object.assign(row.getCell(6), sigYellow);
+                        }
                     });
                 }
                 ws6.addRow([]);
@@ -2883,7 +2927,77 @@ function calculateEffectSize(ssSample,ssTotal,dfBetween,msError) { const etaSqua
 function validateBalancedDesign(matrix,n,k) { let incompleteCount=0; for (let ri=0;ri<n;ri++){ let complete=0; for (let s=0;s<k;s++){ const val=matrix[s][ri]; if (val!==undefined&&val!==null&&!isNaN(val)&&val!=='') complete++; } if (complete!==k) incompleteCount++; } return {balanced:incompleteCount===0,incompletePanelists:incompleteCount}; }
 const getOverallLabel=()=>{ if (activeVariables.includes('overall')) return variableDefs['overall']?.label||(AppConfig.testMode===TestMode.HEDONIK?'Overall Liking':'Overall Intensity'); const last=activeVariables[activeVariables.length-1]; return variableDefs[last]?.label||last; };
 function convertDuncanToSubset(means,sampleNames,duncanGroups) { const k=means.length; const indexed=means.map((m,i)=>({mean:m,name:sampleNames[i],group:duncanGroups[i],index:i})).sort((a,b)=>b.mean-a.mean); const allLetters=Array.from(new Set(indexed.flatMap(item=>item.group.split('')))).sort(); const subsets=[]; const letterToSubsetIndex={}; let subsetIdx=0; allLetters.forEach(letter=>{letterToSubsetIndex[letter]=subsetIdx++;}); for (let i=0;i<subsetIdx;i++) { subsets.push([]); } indexed.forEach(item=>{ const letters=item.group.split(''); letters.forEach(letter=>{ const sIdx=letterToSubsetIndex[letter]; if (sIdx!==undefined) subsets[sIdx].push(item); }); }); subsets.forEach(subset=>{subset.sort((a,b)=>b.mean-a.mean);}); return subsets.filter(s=>s.length>0); }
-function renderDuncanSPSSStyle(anovaResults,sampleNames,nPerSample) { if (!anovaResults||Object.keys(anovaResults).length===0) return ''; let html=''; Object.entries(anovaResults).forEach(([attr,result])=>{ if (!result.sampleMeans) return; const groups=duncanMRT(result.sampleMeans,result.msError,result.n||nPerSample,result.dfError); const subsets=convertDuncanToSubset(result.sampleMeans,sampleNames,groups); const numSubsets=subsets.length; const sortedSamples=result.sampleMeans.map((m,i)=>({name:escapeHtml(sampleNames[i]),mean:m,group:groups[i],originalIndex:i})).sort((a,b)=>a.mean-b.mean); const matrix=sortedSamples.map(sample=>{ const row={}; subsets.forEach((subset,idx)=>{ const inSubset=subset.some(s=>s.name===sample.name); row[idx+1]=inSubset?sample.mean.toFixed(2):''; }); return {...sample,...row}; }); html+=`<div class="spss-duncan-container"><div class="spss-duncan-title">Duncan<sub>a</sub> — ${escapeHtml(attr)}</div><table class="spss-table">`; html+=`<tr><th rowspan="2" class="product-header">Nama Produk</th><th rowspan="2" class="n-header">N</th><th rowspan="2" style="background: #1a3a5c;">Huruf Duncan</th><th colspan="${numSubsets}" class="subset-header">Subset for alpha = 0.05</th></tr><tr>`; for (let i=1;i<=numSubsets;i++) { html+=`<th class="subset-header">${i}</th>`; } html+=`</tr>`; matrix.forEach(row=>{ html+=`<tr><td class="product-cell">${row.name}</td><td class="n-cell">${nPerSample}</td><td style="text-align: center; font-weight: 700; color: #1a73e8;">${row.group}</td>`; for (let i=1;i<=numSubsets;i++) { html+=`<td class="subset-cell">${row[i]}</td>`; } html+=`</tr>`; }); html+=`<tr class="sig-row"><td class="product-cell">Sig.</td><td class="n-cell"></td><td></td>`; for (let i=1;i<=numSubsets;i++) { html+=`<td class="sig-cell">${result.F?result.F.toFixed(3):(result.sig?'< 0.05':'> 0.05')}</td>`; } html+=`</tr></table></div>`; }); html+=`<div class="note-box" style="margin-top: 10px;"><b>📖 Cara Membaca:</b><br>• Sampel dengan <b>huruf yang sama</b> = tidak berbeda signifikan.<br>• Sampel dalam <b>subset yang sama</b> = tidak berbeda signifikan.</div>`; return html; }
+function renderDuncanSPSSStyle(anovaResults, sampleNames, nPerSample) { 
+    if (!anovaResults || Object.keys(anovaResults).length === 0) return ''; 
+    let html = ''; 
+    Object.entries(anovaResults).forEach(([attr, result]) => { 
+        if (!result.sampleMeans) return; 
+        const groups = duncanMRT(result.sampleMeans, result.msError, result.n || nPerSample, result.dfError); 
+        const subsets = convertDuncanToSubset(result.sampleMeans, sampleNames, groups); 
+        const numSubsets = subsets.length; 
+        const sortedSamples = result.sampleMeans.map((m, i) => ({ name: escapeHtml(sampleNames[i]), mean: m, group: groups[i], originalIndex: i })).sort((a, b) => b.mean - a.mean); 
+        
+        const matrix = sortedSamples.map(sample => { 
+            const row = {}; 
+            subsets.forEach((subset, idx) => { 
+                const inSubset = subset.some(s => s.name === sample.name); 
+                row[idx + 1] = inSubset ? sample.mean.toFixed(2) : ''; 
+            }); 
+            return { ...sample, ...row }; 
+        }); 
+
+        html += `<div class="spss-duncan-container"><div class="spss-duncan-title">Duncan<sub>a</sub> — ${escapeHtml(attr)}</div><table class="spss-table">`; 
+        
+        // Tambahkan Header "Keterangan"
+        html += `<tr>
+            <th rowspan="2" class="product-header">Nama Produk</th>
+            <th rowspan="2" class="n-header">N</th>
+            <th rowspan="2" style="background: #2c3e50;">Huruf Duncan</th>
+            <th colspan="${numSubsets}" class="subset-header">Subset for alpha = 0.05</th>
+            <th rowspan="2" style="background: #2c3e50; min-width: 180px;">Keterangan</th>
+        </tr><tr>`; 
+        
+        for (let i = 1; i <= numSubsets; i++) { html += `<th class="subset-header">${i}</th>`; } 
+        html += `</tr>`; 
+        
+        matrix.forEach(row => { 
+            // LOGIKA BARU: Cari sampel mana saja yang hurufnya TIDAK beririsan
+            const myLetters = row.group.split('');
+            const diffSamples = matrix.filter(other => {
+                const otherLetters = other.group.split('');
+                return !myLetters.some(l => otherLetters.includes(l));
+            }).map(other => other.name);
+
+            let ketText, ketStyle;
+            if (diffSamples.length > 0) {
+                ketText = `Berbeda nyata dengan: <b>${diffSamples.join(', ')}</b>`;
+                ketStyle = 'background: #d4edda; color: #155724;'; // Hijau
+            } else {
+                ketText = 'Tidak berbeda nyata dengan sampel lain';
+                ketStyle = 'background: #fff3cd; color: #856404;'; // Kuning
+            }
+
+            html += `<tr>
+                <td class="product-cell">${row.name}</td>
+                <td class="n-cell">${nPerSample}</td>
+                <td style="text-align: center; font-weight: 700; color: #1a73e8; background: #f8f9fa;">${row.group}</td>`; 
+            for (let i = 1; i <= numSubsets; i++) { 
+                html += `<td class="subset-cell">${row[i]}</td>`; 
+            } 
+            // Print Keterangan Dinamis
+            html += `<td style="text-align: left; font-size: 10px; ${ketStyle}">${ketText}</td>`;
+            html += `</tr>`; 
+        }); 
+        
+        html += `<tr class="sig-row"><td class="product-cell">Sig.</td><td class="n-cell"></td><td></td>`; 
+        for (let i = 1; i <= numSubsets; i++) { 
+            html += `<td class="sig-cell">${result.F ? result.F.toFixed(3) : (result.sig ? '< 0.05' : '> 0.05')}</td>`; 
+        } 
+        html += `<td style="background: #e8ecf1;"></td></tr></table></div>`; 
+    }); 
+    html += `<div class="note-box" style="margin-top: 10px;"><b>📖 Cara Membaca:</b><br>• Sampel dengan <b>huruf yang sama</b> = tidak berbeda signifikan.<br>• Sampel dalam <b>subset yang sama</b> = tidak berbeda signifikan.</div>`; 
+    return html; 
+}
 // ==================== ANALYSIS ====================
 function runAnalysisWithAssumptionCheck(isGold) { if (!dataRows.length) { alert('Data kosong!'); return; } if (dataRows.length < 3) { alert('Minimal 3 panelis!'); return; } if (!isGold) { const confirmed = confirm(`⚠️ Mode "Lengkap" menggunakan One-Way ANOVA parametrik.\nMode aktif: ${getModeLabel()}\nLanjutkan?`); if (!confirmed) return; } if (editMode) commitEdit(); clearOutput(); runCore(isGold); if (!isGold) updateStatus(`✅ Analisis Lengkap selesai`); else { updateStatus(`🏆 Analisis Profesional selesai!`); document.getElementById('outputContent').scrollTop = 0; } }
 function runCore(isGold) {
